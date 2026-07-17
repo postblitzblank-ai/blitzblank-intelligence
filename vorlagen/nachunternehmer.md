@@ -1,8 +1,8 @@
 # E-Mail-Vorlage: Nachunternehmer
 
 **Typ:** Nachunternehmer
-**Betreff (Vorschlag, noch nicht vom Nutzer bestätigt):** Ihr zuverlässiger Nachunternehmer für Gebäudereinigung — Blitzblank Dienstleistung UG
-**Status:** Text final (vom Nutzer geliefert am 2026-07-17) · anwaltliche Prüfung (§ 7 UWG) empfohlen, steht noch aus
+**Betreff (vom Nutzer bestätigt am 2026-07-17):** Ihr zuverlässiger Nachunternehmer für Gebäudereinigung — Blitzblank Dienstleistung UG
+**Status:** Betreff und Text final (vom Nutzer geliefert/bestätigt am 2026-07-17) · anwaltliche Prüfung (§ 7 UWG) empfohlen, steht noch aus
 
 **Platzhalter-Regel (Modul 8):** Die KI ersetzt ausschließlich `{{anrede}}`:
 - Bekannter Ansprechpartner → „Sehr geehrter Herr [Nachname]," / „Sehr geehrte Frau [Nachname],"
