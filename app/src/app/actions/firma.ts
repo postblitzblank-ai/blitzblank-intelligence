@@ -1,0 +1,87 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { firma, ansprechpartner, aktivitaet } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+const modulPfad = {
+  direktkunde: "/direktkunden",
+  nachunternehmer: "/nachunternehmer",
+} as const;
+
+export async function firmaErfassen(formData: FormData) {
+  const typ = formData.get("typ") as "direktkunde" | "nachunternehmer";
+  const name = (formData.get("name") as string)?.trim();
+  if (!name || !modulPfad[typ]) return;
+
+  const [neu] = await db
+    .insert(firma)
+    .values({
+      typ,
+      name,
+      branche: (formData.get("branche") as string)?.trim() || null,
+      region: (formData.get("region") as string)?.trim() || null,
+      herkunftKanal:
+        (formData.get("herkunftKanal") as
+          | "ausgehend"
+          | "eingehend_telefon"
+          | "eingehend_email"
+          | "eingehend_formular") ?? "ausgehend",
+    })
+    .returning({ id: firma.id });
+
+  revalidatePath(modulPfad[typ]);
+  redirect(`${modulPfad[typ]}/${neu.id}`);
+}
+
+export async function ansprechpartnerHinzufuegen(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  const nachname = (formData.get("nachname") as string)?.trim();
+  if (!firmaId || !nachname) return;
+
+  await db.insert(ansprechpartner).values({
+    firmaId,
+    vorname: (formData.get("vorname") as string)?.trim() || null,
+    nachname,
+    rolle: (formData.get("rolle") as string)?.trim() || null,
+    email: (formData.get("email") as string)?.trim() || null,
+    telefon: (formData.get("telefon") as string)?.trim() || null,
+  });
+
+  revalidatePath(`/direktkunden/${firmaId}`);
+  revalidatePath(`/nachunternehmer/${firmaId}`);
+}
+
+export async function notizenSpeichern(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  if (!firmaId) return;
+
+  await db
+    .update(firma)
+    .set({ notizen: (formData.get("notizen") as string) || null, aktualisiertAm: new Date() })
+    .where(eq(firma.id, firmaId));
+
+  revalidatePath(`/direktkunden/${firmaId}`);
+  revalidatePath(`/nachunternehmer/${firmaId}`);
+}
+
+export async function aktivitaetErfassen(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  const typ = formData.get("typ") as
+    | "email_gesendet"
+    | "anruf"
+    | "angebot_gesendet"
+    | "auftrag_gewonnen";
+  if (!firmaId || !typ) return;
+
+  await db.insert(aktivitaet).values({
+    firmaId,
+    typ,
+    beschreibung: (formData.get("beschreibung") as string)?.trim() || null,
+  });
+
+  revalidatePath(`/direktkunden/${firmaId}`);
+  revalidatePath(`/nachunternehmer/${firmaId}`);
+}

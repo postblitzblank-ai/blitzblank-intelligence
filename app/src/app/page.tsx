@@ -1,16 +1,44 @@
 import Link from "next/link";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { db } from "@/db";
+import { firma, followup, chance } from "@/db/schema";
+import { and, count, eq, lte } from "drizzle-orm";
 
-const kennzahlen = [
-  { label: "Neue Direktkunden", wert: 0, href: "/direktkunden" },
-  { label: "Neue Nachunternehmer", wert: 0, href: "/nachunternehmer" },
-  { label: "Follow-ups fällig", wert: 0, href: "/direktkunden" },
-  { label: "Antworten warten", wert: 0, href: "/direktkunden" },
-  { label: "SEO-Vorschläge", wert: 0, href: "/seo" },
-  { label: "Marktchance erkannt", wert: 0, href: "/marketing" },
-];
+export const dynamic = "force-dynamic";
 
-export default function Dashboard() {
+export default async function Dashboard() {
+  const [neueDirektkunden, neueNachunternehmer, followupsFaellig, chancen] =
+    await Promise.all([
+      db
+        .select({ n: count() })
+        .from(firma)
+        .where(and(eq(firma.typ, "direktkunde"), eq(firma.status, "neu"))),
+      db
+        .select({ n: count() })
+        .from(firma)
+        .where(and(eq(firma.typ, "nachunternehmer"), eq(firma.status, "neu"))),
+      db
+        .select({ n: count() })
+        .from(followup)
+        .where(
+          and(eq(followup.status, "offen"), lte(followup.faelligAm, new Date()))
+        ),
+      db.select({ n: count() }).from(chance).where(eq(chance.status, "neu")),
+    ]);
+
+  const kennzahlen = [
+    { label: "Neue Direktkunden", wert: neueDirektkunden[0].n, href: "/direktkunden" },
+    {
+      label: "Neue Nachunternehmer",
+      wert: neueNachunternehmer[0].n,
+      href: "/nachunternehmer",
+    },
+    { label: "Follow-ups fällig", wert: followupsFaellig[0].n, href: "/direktkunden" },
+    { label: "Antworten warten", wert: 0, href: "/direktkunden" },
+    { label: "SEO-Vorschläge", wert: 0, href: "/seo" },
+    { label: "Marktchance erkannt", wert: chancen[0].n, href: "/marketing" },
+  ];
+
   return (
     <div className="space-y-10">
       <div>

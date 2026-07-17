@@ -1,11 +1,14 @@
-import { ModulStub } from "@/components/modul-stub";
+import { FirmenListe } from "@/components/firmen-liste";
+
+export const dynamic = "force-dynamic";
 
 export default function NachunternehmerPage() {
   return (
-    <ModulStub
+    <FirmenListe
+      typ="nachunternehmer"
       titel="Nachunternehmer"
-      untertitel="Firmen finden, die Reinigungsleistungen an Subunternehmer vergeben — Beziehungsaufbau über Jahre."
-      hinweis="Fund-Karten mit KI-Begründung („warum diese Firma“) und dauerhafte Follow-ups entstehen in den nächsten Schritten."
+      untertitel="Firmen, die Reinigungsleistungen vergeben — Beziehungsaufbau über Jahre."
+      basisPfad="/nachunternehmer"
     />
   );
 }
