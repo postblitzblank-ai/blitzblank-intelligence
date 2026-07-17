@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { firma, ansprechpartner, aktivitaet } from "@/db/schema";
+import { firma, ansprechpartner, aktivitaet, followup } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const modulPfad = {
@@ -76,12 +76,51 @@ export async function aktivitaetErfassen(formData: FormData) {
     | "auftrag_gewonnen";
   if (!firmaId || !typ) return;
 
+  const akte = await db.query.firma.findFirst({
+    where: (f, { eq: gleich }) => gleich(f.id, firmaId),
+  });
+  if (!akte) return;
+
   await db.insert(aktivitaet).values({
     firmaId,
     typ,
     beschreibung: (formData.get("beschreibung") as string)?.trim() || null,
   });
 
+  // Konzept-Logik: Folgeaktionen je nach Aktivitätstyp
+  const inTagen = (tage: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + tage);
+    return d;
+  };
+
+  if (typ === "angebot_gesendet" && akte.typ === "direktkunde") {
+    // Zählung von max. 3 Versuchen beginnt erst mit Angebotsversand
+    await db.insert(followup).values({
+      firmaId,
+      faelligAm: inTagen(7),
+      versuchNr: 1,
+    });
+  } else if (typ === "email_gesendet") {
+    await db.insert(followup).values({
+      firmaId,
+      faelligAm: inTagen(akte.typ === "nachunternehmer" ? 24 : 14),
+    });
+  }
+
+  if (typ === "auftrag_gewonnen") {
+    await db
+      .update(firma)
+      .set({ status: "gewonnen", aktualisiertAm: new Date() })
+      .where(eq(firma.id, firmaId));
+  } else if (akte.status === "neu") {
+    await db
+      .update(firma)
+      .set({ status: "kontaktiert", aktualisiertAm: new Date() })
+      .where(eq(firma.id, firmaId));
+  }
+
+  revalidatePath("/");
   revalidatePath(`/direktkunden/${firmaId}`);
   revalidatePath(`/nachunternehmer/${firmaId}`);
 }

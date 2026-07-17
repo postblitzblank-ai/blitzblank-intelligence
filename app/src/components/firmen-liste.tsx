@@ -5,6 +5,8 @@ import { desc, eq } from "drizzle-orm";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FirmaErfassen } from "@/components/firma-erfassen";
+import { Button } from "@/components/ui/button";
+import { Mail } from "lucide-react";
 
 const kanalLabel: Record<string, string> = {
   ausgehend: "Ausgehend",
@@ -37,7 +39,14 @@ export async function FirmenListe({
           <h1 className="text-2xl font-semibold tracking-tight">{titel}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{untertitel}</p>
         </div>
-        <FirmaErfassen typ={typ} />
+        <div className="flex shrink-0 gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link href={`${basisPfad}/freigabe`}>
+              <Mail className="size-4" /> Sammel-Freigabe
+            </Link>
+          </Button>
+          <FirmaErfassen typ={typ} />
+        </div>
       </div>
 
       {firmen.length === 0 ? (

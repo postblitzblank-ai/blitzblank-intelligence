@@ -19,6 +19,7 @@ import {
   ansprechpartnerHinzufuegen,
   notizenSpeichern,
 } from "@/app/actions/firma";
+import { followupAbschliessen, followupPlanen } from "@/app/actions/followup";
 
 const kanalLabel: Record<string, string> = {
   ausgehend: "Ausgehend",
@@ -134,6 +135,77 @@ export async function Firmenakte({
               <Input name="telefon" placeholder="Telefon" />
               <Button type="submit" variant="secondary">
                 Hinzufügen
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">Follow-ups</h2>
+        <Card>
+          <CardContent className="space-y-4">
+            {akte.followups.filter((f) => f.status === "offen").length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Kein Follow-up geplant.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {akte.followups
+                  .filter((f) => f.status === "offen")
+                  .map((f) => (
+                    <li
+                      key={f.id}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div className="text-sm">
+                        <span className="font-medium tabular-nums">
+                          Fällig am {datumFormat.format(f.faelligAm)}
+                        </span>
+                        {f.versuchNr != null && (
+                          <Badge variant="outline" className="ml-2">
+                            Versuch {f.versuchNr} von 3
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <form action={followupAbschliessen}>
+                          <input type="hidden" name="followupId" value={f.id} />
+                          <input type="hidden" name="ergebnis" value="antwort" />
+                          <Button type="submit" size="sm" variant="secondary">
+                            Antwort erhalten
+                          </Button>
+                        </form>
+                        <form action={followupAbschliessen}>
+                          <input type="hidden" name="followupId" value={f.id} />
+                          <input
+                            type="hidden"
+                            name="ergebnis"
+                            value="keine_antwort"
+                          />
+                          <Button type="submit" size="sm" variant="outline">
+                            Keine Antwort
+                          </Button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            <Separator />
+            <form action={followupPlanen} className="flex items-center gap-3">
+              <input type="hidden" name="firmaId" value={akte.id} />
+              <select
+                name="tage"
+                defaultValue={akte.typ === "nachunternehmer" ? "24" : "14"}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <option value="7">In 1 Woche</option>
+                <option value="14">In 2 Wochen</option>
+                <option value="24">In 3–4 Wochen</option>
+              </select>
+              <Button type="submit" variant="secondary" size="sm">
+                Follow-up planen
               </Button>
             </form>
           </CardContent>

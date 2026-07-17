@@ -1,14 +1,31 @@
 import Link from "next/link";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { db } from "@/db";
 import { firma, followup, chance } from "@/db/schema";
 import { and, count, eq, lte } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
+const datumFormat = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+});
+
 export default async function Dashboard() {
-  const [neueDirektkunden, neueNachunternehmer, followupsFaellig, chancen] =
-    await Promise.all([
+  const [
+    neueDirektkunden,
+    neueNachunternehmer,
+    followupsFaellig,
+    chancen,
+    faelligeListe,
+  ] = await Promise.all([
       db
         .select({ n: count() })
         .from(firma)
@@ -24,6 +41,13 @@ export default async function Dashboard() {
           and(eq(followup.status, "offen"), lte(followup.faelligAm, new Date()))
         ),
       db.select({ n: count() }).from(chance).where(eq(chance.status, "neu")),
+      db.query.followup.findMany({
+        where: (f, { and: und, eq: gleich, lte: bis }) =>
+          und(gleich(f.status, "offen"), bis(f.faelligAm, new Date())),
+        with: { firma: true },
+        orderBy: (f, { asc }) => asc(f.faelligAm),
+        limit: 10,
+      }),
     ]);
 
   const kennzahlen = [
@@ -65,13 +89,48 @@ export default async function Dashboard() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Heute wichtig</h2>
-        <Card>
-          <CardHeader>
-            <CardDescription>
-              Noch keine Aufgaben — die KI-Agenten sind noch nicht angebunden.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {faelligeListe.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>
+                Nichts fällig — alle Follow-ups sind auf Kurs.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent>
+              <ul className="space-y-2.5">
+                {faelligeListe.map((f) => {
+                  const pfad =
+                    f.firma.typ === "direktkunde"
+                      ? "/direktkunden"
+                      : "/nachunternehmer";
+                  return (
+                    <li
+                      key={f.id}
+                      className="flex items-center justify-between gap-4"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5 text-sm">
+                        <span className="size-2 shrink-0 rounded-full bg-amber-500" />
+                        <span className="truncate font-medium">
+                          {f.firma.name}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground">
+                          Follow-up fällig seit {datumFormat.format(f.faelligAm)}
+                          {f.versuchNr != null && ` · Versuch ${f.versuchNr}/3`}
+                        </span>
+                      </div>
+                      <Button asChild size="sm" variant="secondary">
+                        <Link href={`${pfad}/${f.firmaId}`}>Akte öffnen</Link>
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       <section className="space-y-3">
