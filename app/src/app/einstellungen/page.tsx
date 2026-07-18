@@ -64,7 +64,7 @@ export default async function EinstellungenPage() {
         <Card>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p>Anthropic (KI): eingerichtet ✓</p>
-            <p>Datenbank: lokale Entwicklungs-Datenbank (Cloud-Umzug folgt)</p>
+            <p>Datenbank: Neon Cloud, Frankfurt (eu-central-1) ✓</p>
             <p>Gmail-Versand: noch nicht verbunden</p>
             <p>Google Search Console: noch nicht verbunden</p>
           </CardContent>

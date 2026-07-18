@@ -2,9 +2,10 @@
  * Legt die beiden E-Mail-Vorlagen aus /vorlagen an, falls sie fehlen.
  * Quelle der Texte: vorlagen/direktkunden.md und vorlagen/nachunternehmer.md
  */
-import { drizzle } from "drizzle-orm/postgres-js";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
+import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
+import { neon } from "@neondatabase/serverless";
 import postgres from "postgres";
-import { eq } from "drizzle-orm";
 import { vorlage } from "../src/db/schema";
 
 const direktkundenText = `{{anrede}}
@@ -58,8 +59,10 @@ Weitere Informationen über unser Unternehmen und unsere Leistungen finden Sie a
 Vielen Dank für Ihre Zeit und Ihr Interesse. Wir freuen uns auf Ihre Rückmeldung und auf eine mögliche Zusammenarbeit.`;
 
 async function main() {
-  const client = postgres(process.env.DATABASE_URL!, { prepare: false });
-  const db = drizzle(client);
+  const url = process.env.DATABASE_URL!;
+  const istNeon = url.includes("neon.tech");
+  const client = istNeon ? null : postgres(url, { max: 1, prepare: false });
+  const db = istNeon ? drizzleNeon(neon(url)) : drizzlePostgres(client!);
 
   const vorhanden = await db.select({ typ: vorlage.typ }).from(vorlage);
   const typen = new Set(vorhanden.map((v) => v.typ));
@@ -84,7 +87,7 @@ async function main() {
   }
 
   console.log("Seed abgeschlossen.");
-  await client.end();
+  if (client) await client.end();
 }
 
 main();
