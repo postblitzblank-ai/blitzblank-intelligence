@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WebsiteCheck } from "@/components/website-check";
+import { Rankings } from "@/components/rankings";
 import {
   seoBefundErledigt,
   seoBefundFreigeben,
@@ -49,15 +50,12 @@ export default async function SeoPage() {
         <WebsiteCheck />
       </div>
 
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardDescription>
-            Google Search Console noch nicht verbunden — die Rechteübertragung
-            läuft laut Konzept separat. Der Website-Check unten analysiert die
-            echte Live-Website direkt, unabhängig davon.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Rankings (letzte 28 Tage)
+        </h2>
+        <Rankings />
+      </section>
 
       {wartetAufFreigabe.length > 0 && (
         <section className="space-y-3">

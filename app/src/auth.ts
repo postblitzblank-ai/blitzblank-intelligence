@@ -15,7 +15,28 @@ const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/webmasters.readonly",
 ].join(" ");
 
+async function accessTokenErneuern(refreshToken: string) {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+  const daten = await response.json();
+  if (!response.ok) throw new Error("Token-Erneuerung fehlgeschlagen: " + JSON.stringify(daten));
+  return {
+    accessToken: daten.access_token as string,
+    expiresAt: Math.floor(Date.now() / 1000) + (daten.expires_in as number),
+    refreshToken: (daten.refresh_token as string | undefined) ?? refreshToken,
+  };
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -35,7 +56,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
+        return token;
       }
+
+      const expiresAt = token.expiresAt as number | undefined;
+      const refreshToken = token.refreshToken as string | undefined;
+      if (expiresAt && Date.now() / 1000 > expiresAt - 60 && refreshToken) {
+        try {
+          const erneuert = await accessTokenErneuern(refreshToken);
+          token.accessToken = erneuert.accessToken;
+          token.expiresAt = erneuert.expiresAt;
+          token.refreshToken = erneuert.refreshToken;
+        } catch (error) {
+          console.error("Google-Token konnte nicht erneuert werden:", error);
+          token.accessToken = undefined;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
