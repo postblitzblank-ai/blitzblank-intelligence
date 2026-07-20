@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { db } from "@/db";
-import { firma, followup, chance } from "@/db/schema";
+import { firma, followup, chance, seoBefund } from "@/db/schema";
 import { and, count, eq, lte } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,8 @@ export default async function Dashboard() {
     followupsFaellig,
     chancen,
     faelligeListe,
+    seoOffen,
+    seoAutonomHeute,
   ] = await Promise.all([
       db
         .select({ n: count() })
@@ -48,6 +50,15 @@ export default async function Dashboard() {
         orderBy: (f, { asc }) => asc(f.faelligAm),
         limit: 10,
       }),
+      db
+        .select({ n: count() })
+        .from(seoBefund)
+        .where(and(eq(seoBefund.freigabeNoetig, true), eq(seoBefund.status, "offen"))),
+      db.query.seoBefund.findMany({
+        where: (b, { eq: gleich }) => gleich(b.status, "offen"),
+        orderBy: (b, { desc }) => desc(b.erstelltAm),
+        limit: 5,
+      }),
     ]);
 
   const kennzahlen = [
@@ -59,7 +70,7 @@ export default async function Dashboard() {
     },
     { label: "Follow-ups fällig", wert: followupsFaellig[0].n, href: "/direktkunden" },
     { label: "Antworten warten", wert: 0, href: "/direktkunden" },
-    { label: "SEO-Vorschläge", wert: 0, href: "/seo" },
+    { label: "SEO-Vorschläge", wert: seoOffen[0].n, href: "/seo" },
     { label: "Marktchance erkannt", wert: chancen[0].n, href: "/marketing" },
   ];
 
@@ -135,14 +146,35 @@ export default async function Dashboard() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">SEO heute</h2>
-        <Card>
-          <CardHeader>
-            <CardDescription>
-              Der tägliche SEO-Kurzüberblick erscheint hier, sobald die
-              Search-Console-Anbindung eingerichtet ist.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        {seoAutonomHeute.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>
+                Noch keine Befunde — starte im SEO-Center einen Website-Check.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent>
+              <ul className="space-y-2">
+                {seoAutonomHeute.map((b) => (
+                  <li key={b.id} className="flex items-center gap-2.5 text-sm">
+                    <span
+                      className={`size-2 shrink-0 rounded-full ${
+                        b.freigabeNoetig ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
+                    />
+                    <span className="truncate">{b.titel}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button asChild size="sm" variant="secondary" className="mt-3">
+                <Link href="/seo">Alle SEO-Befunde ansehen</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </section>
     </div>
   );

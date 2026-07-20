@@ -46,6 +46,20 @@ export const bewertungsanfrageStatusEnum = pgEnum("bewertungsanfrage_status", [
   "freigegeben",
   "gesendet",
 ]);
+export const seoKategorieEnum = pgEnum("seo_kategorie", [
+  "technisch",
+  "meta",
+  "content",
+  "backlink",
+  "wettbewerb",
+  "struktur",
+]);
+export const seoBefundStatusEnum = pgEnum("seo_befund_status", [
+  "offen",
+  "freigegeben",
+  "erledigt",
+  "verworfen",
+]);
 
 /**
  * FIRMA ist eine einzige Tabelle für Nachunternehmer und Direktkunden,
@@ -140,6 +154,23 @@ export const bewertungsanfrage = pgTable("bewertungsanfrage", {
     .references(() => auftrag.id, { onDelete: "cascade" }),
   status: bewertungsanfrageStatusEnum("status").notNull().default("vorbereitet"),
   gesendetAm: timestamp("gesendet_am"),
+});
+
+/**
+ * SEO-Center (Modul 9). Freigabe-Regel aus dem Konzept: neue Backlinks,
+ * Landingpages, Content, Alt-Texte/Meta-Beschreibungen sind autonom
+ * (freigabeNoetig=false, nur Meldung), strukturelle Änderungen an
+ * bestehenden wichtigen Seiten brauchen vorherige Freigabe.
+ */
+export const seoBefund = pgTable("seo_befund", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kategorie: seoKategorieEnum("kategorie").notNull(),
+  titel: text("titel").notNull(),
+  beschreibung: text("beschreibung").notNull(),
+  freigabeNoetig: boolean("freigabe_noetig").notNull().default(false),
+  status: seoBefundStatusEnum("status").notNull().default("offen"),
+  quelleUrl: text("quelle_url"),
+  erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 
 export const firmaRelations = relations(firma, ({ many }) => ({
