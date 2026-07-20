@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { GoogleVerbindung } from "@/components/google-verbindung";
 
 export const dynamic = "force-dynamic";
 
@@ -62,11 +63,17 @@ export default async function EinstellungenPage() {
           Verbindungen
         </h2>
         <Card>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>Anthropic (KI): eingerichtet ✓</p>
-            <p>Datenbank: Neon Cloud, Frankfurt (eu-central-1) ✓</p>
-            <p>Gmail-Versand: noch nicht verbunden</p>
-            <p>Google Search Console: noch nicht verbunden</p>
+          <CardContent className="space-y-4">
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>Anthropic (KI): eingerichtet ✓</p>
+              <p>Datenbank: Neon Cloud, Frankfurt (eu-central-1) ✓</p>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium">
+                Google (Gmail-Versand + Search Console)
+              </p>
+              <GoogleVerbindung />
+            </div>
           </CardContent>
         </Card>
       </section>
