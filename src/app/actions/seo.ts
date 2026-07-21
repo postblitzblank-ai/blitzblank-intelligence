@@ -35,13 +35,33 @@ async function googleAccessTokenHolen() {
 }
 
 async function befundeSpeichern(befunde: BefundVorschlag[], standardQuelle: string) {
+  const zielKeywords = await db.query.seoZielKeyword.findMany();
+  // Bereits gemeldete Befunde je Kategorie, um Formulierungs-Varianten
+  // desselben Themas nicht bei jedem Lauf erneut anzulegen (z. B. "Neue
+  // Landingpage: X" vs. "Neue Landingpage für 'X' anlegen").
+  const bestehende = await db.query.seoBefund.findMany({
+    columns: { kategorie: true, titel: true, beschreibung: true },
+  });
+
   for (const b of befunde) {
     if (!b.titel?.trim() || !b.beschreibung?.trim() || !b.kategorie) continue;
 
-    const existiert = await db.query.seoBefund.findFirst({
-      where: ilike(seoBefund.titel, b.titel),
-    });
-    if (existiert) continue;
+    const exakterTreffer = bestehende.some(
+      (e) => e.kategorie === b.kategorie && e.titel.toLowerCase() === b.titel.toLowerCase()
+    );
+    if (exakterTreffer) continue;
+
+    const betroffenesKeyword = zielKeywords.find((z) =>
+      `${b.titel} ${b.beschreibung}`.toLowerCase().includes(z.keyword.toLowerCase())
+    );
+    if (betroffenesKeyword) {
+      const bereitsGemeldet = bestehende.some(
+        (e) =>
+          e.kategorie === b.kategorie &&
+          `${e.titel} ${e.beschreibung}`.toLowerCase().includes(betroffenesKeyword.keyword.toLowerCase())
+      );
+      if (bereitsGemeldet) continue;
+    }
 
     await db.insert(seoBefund).values({
       kategorie: b.kategorie as
@@ -56,6 +76,7 @@ async function befundeSpeichern(befunde: BefundVorschlag[], standardQuelle: stri
       freigabeNoetig: b.freigabeNoetig,
       quelleUrl: b.quelleUrl || standardQuelle,
     });
+    bestehende.push({ kategorie: b.kategorie as (typeof bestehende)[number]["kategorie"], titel: b.titel, beschreibung: b.beschreibung });
   }
   revalidatePath("/seo");
   revalidatePath("/");
