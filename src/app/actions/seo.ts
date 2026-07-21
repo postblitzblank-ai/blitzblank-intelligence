@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/db";
-import { seoBefund } from "@/db/schema";
+import { seoBefund, seoZielKeyword } from "@/db/schema";
 import { eq, ilike } from "drizzle-orm";
 import {
   letzte28Tage,
@@ -162,10 +162,30 @@ Beschreibe für jeden Befund konkret, was du auf der Seite gesehen hast — kein
   await befundeSpeichern(befunde, WEBSITE_URL);
 }
 
+export async function zielKeywordHinzufuegen(formData: FormData) {
+  const keyword = (formData.get("keyword") as string)?.trim();
+  if (!keyword) return;
+
+  const existiert = await db.query.seoZielKeyword.findFirst({
+    where: ilike(seoZielKeyword.keyword, keyword),
+  });
+  if (!existiert) {
+    await db.insert(seoZielKeyword).values({ keyword });
+  }
+  revalidatePath("/seo");
+}
+
+export async function zielKeywordEntfernen(formData: FormData) {
+  const id = formData.get("id") as string;
+  if (!id) return;
+  await db.delete(seoZielKeyword).where(eq(seoZielKeyword.id, id));
+  revalidatePath("/seo");
+}
+
 /**
- * Nutzt echte Search-Console-Rankingdaten, um konkrete, priorisierte
- * Maßnahmen zu empfehlen, damit die Firma bei Gebäudereinigungs-Suchanfragen
- * in der Region weiter nach oben kommt.
+ * Baut aktiv auf die vom Nutzer festgelegten Ziel-Keywords hin auf (z. B.
+ * "Gebäudereinigung Berlin") — nicht nur eine Analyse dessen, was bereits
+ * rankt. Echte Search-Console-Daten dienen dabei als Kontext, wo vorhanden.
  */
 export async function keywordStrategieErstellen() {
   try {
@@ -177,55 +197,75 @@ export async function keywordStrategieErstellen() {
 }
 
 async function keywordStrategieDurchfuehren() {
-  const session = await auth();
-  if (!session?.accessToken) {
-    throw new Error("Nicht mit Google verbunden.");
-  }
-
-  const site = await verifizierteSiteFinden(session.accessToken);
-  if (!site) {
-    throw new Error(
-      "Keine verifizierte Search-Console-Property gefunden. Rechteübertragung eventuell noch nicht abgeschlossen."
-    );
-  }
-
-  const zeilen = await searchAnalyticsAbfragen(session.accessToken, site.siteUrl, {
-    ...letzte28Tage(),
-    rowLimit: 50,
+  const zielKeywords = await db.query.seoZielKeyword.findMany({
+    orderBy: (k, { asc }) => asc(k.erstelltAm),
   });
 
-  if (!zeilen.length) {
+  let rankingKontext =
+    "Nicht mit Google Search Console verbunden — keine echten Rankingdaten verfügbar.";
+  let quelle = WEBSITE_URL;
+
+  const session = await auth();
+  if (session?.accessToken) {
+    try {
+      const site = await verifizierteSiteFinden(session.accessToken);
+      if (site) {
+        quelle = site.siteUrl;
+        const zeilen = await searchAnalyticsAbfragen(session.accessToken, site.siteUrl, {
+          ...letzte28Tage(),
+          rowLimit: 50,
+        });
+        rankingKontext = zeilen.length
+          ? zeilen
+              .map(
+                (z) =>
+                  `"${z.keys[0]}" — Klicks: ${z.clicks}, Impressionen: ${z.impressions}, CTR: ${(z.ctr * 100).toFixed(1)}%, Ø Position: ${z.position.toFixed(1)}`
+              )
+              .join("\n")
+          : "Verbunden, aber noch keine Suchdaten für die letzten 28 Tage.";
+      }
+    } catch (error) {
+      console.error("Search-Console-Daten konnten nicht geladen werden:", error);
+    }
+  }
+
+  if (zielKeywords.length === 0 && rankingKontext.startsWith("Nicht mit Google")) {
     throw new Error(
-      "Search Console liefert noch keine Daten für die letzten 28 Tage."
+      "Weder Ziel-Keywords festgelegt noch Search-Console-Daten vorhanden. Trag zuerst mindestens ein Ziel-Keyword ein."
     );
   }
 
-  const rankingText = zeilen
-    .map(
-      (z) =>
-        `"${z.keys[0]}" — Klicks: ${z.clicks}, Impressionen: ${z.impressions}, CTR: ${(z.ctr * 100).toFixed(1)}%, Ø Position: ${z.position.toFixed(1)}`
-    )
-    .join("\n");
+  const prompt =
+    zielKeywords.length > 0
+      ? `Du bist SEO-Stratege für die Blitzblank Dienstleistung UG, eine Gebäudereinigungsfirma in Berlin/Brandenburg/Potsdam/Dresden.
 
-  const antwort = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 2048,
-    tool_choice: { type: "tool", name: "seo_befunde_melden" },
-    tools: [befundVorschlagenTool],
-    messages: [
-      {
-        role: "user",
-        content: `Du bist SEO-Stratege für die Blitzblank Dienstleistung UG, eine Gebäudereinigungsfirma in Berlin/Brandenburg/Potsdam/Dresden. Ziel: Bei Suchanfragen rund um Gebäudereinigung in der Region soll die Firma sichtbarer werden und in den Rankings steigen.
+Der Nutzer hat diese Ziel-Keywords festgelegt — die Firma soll dafür bei Google auf Platz 1 stehen, unabhängig davon, ob dafür aktuell schon ein Ranking existiert:
 
-Hier sind die echten Google-Search-Console-Daten der letzten 28 Tage (Suchanfrage, Klicks, Impressionen, CTR, durchschnittliche Position):
+${zielKeywords.map((k) => `- ${k.keyword}`).join("\n")}
 
-${rankingText}
+Echte Google-Search-Console-Daten der letzten 28 Tage als Kontext (zeigt, wofür die Seite aktuell überhaupt gefunden wird):
+
+${rankingKontext}
+
+Bekannt: Die Website hat noch keinen Content-/Blog-Bereich und bislang kaum generische (nicht markengebundene) Rankings — fast alle bisherigen Suchanfragen enthalten "blitz"/"blank".
+
+Erstelle für JEDES Ziel-Keyword mindestens einen konkreten Befund mit Umsetzungsplan: Soll eine neue, dedizierte Landingpage her? Nenne einen konkreten URL-Vorschlag (z. B. /leistungen/gebaeudereinigung-berlin), einen Title-Tag-Vorschlag, eine H1 und den inhaltlichen Fokus (z. B. welche Unterthemen, lokale Bezüge, FAQs). Prüfe auch, ob eine bereits vorhandene Seite stattdessen nur optimiert werden sollte. Sei konkret und umsetzbar, keine generischen SEO-Tipps. Max. 8 Befunde insgesamt.`
+      : `Du bist SEO-Stratege für die Blitzblank Dienstleistung UG, eine Gebäudereinigungsfirma in Berlin/Brandenburg/Potsdam/Dresden. Ziel: Bei Suchanfragen rund um Gebäudereinigung in der Region soll die Firma sichtbarer werden und in den Rankings steigen.
+
+Echte Google-Search-Console-Daten der letzten 28 Tage:
+
+${rankingKontext}
 
 Analysiere: Welche Suchanfragen haben hohe Impressionen aber schlechte Position (>10) oder niedrige CTR trotz guter Position — das sind die größten Chancen. Welche Themen/Keywords rund um Gebäudereinigung fehlen ganz (kein Ranking, obwohl naheliegend)?
 
-Gib 3-6 konkrete, priorisierte Maßnahmen (z. B. "Neue Landingpage für Keyword X", "Meta-Beschreibung für Y optimieren, CTR ist niedrig trotz Position Z", "Content-Idee für Themenlücke W"). Nenne bei jeder Maßnahme das konkrete Keyword und die aktuellen Zahlen.`,
-      },
-    ],
+Gib 3-6 konkrete, priorisierte Maßnahmen. Nenne bei jeder Maßnahme das konkrete Keyword und die aktuellen Zahlen.`;
+
+  const antwort = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 3072,
+    tool_choice: { type: "tool", name: "seo_befunde_melden" },
+    tools: [befundVorschlagenTool],
+    messages: [{ role: "user", content: prompt }],
   });
 
   const toolUse = antwort.content.find(
@@ -235,7 +275,7 @@ Gib 3-6 konkrete, priorisierte Maßnahmen (z. B. "Neue Landingpage für Keyword 
     ?.befunde;
 
   if (!befunde?.length) return;
-  await befundeSpeichern(befunde, site.siteUrl);
+  await befundeSpeichern(befunde, quelle);
 }
 
 export async function seoBefundFreigeben(formData: FormData) {

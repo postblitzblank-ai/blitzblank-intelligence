@@ -173,6 +173,17 @@ export const seoBefund = pgTable("seo_befund", {
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 
+/**
+ * Vom Nutzer festgelegte Ziel-Keywords (z. B. "Gebäudereinigung Berlin"),
+ * für die die Firma aktiv aufgebaut werden soll — unabhängig davon, ob
+ * dafür aktuell schon irgendein Ranking existiert.
+ */
+export const seoZielKeyword = pgTable("seo_ziel_keyword", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  keyword: text("keyword").notNull(),
+  erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
+});
+
 export const firmaRelations = relations(firma, ({ many }) => ({
   ansprechpartner: many(ansprechpartner),
   aktivitaeten: many(aktivitaet),

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WebsiteCheck } from "@/components/website-check";
 import { Rankings } from "@/components/rankings";
+import { ZielKeywords } from "@/components/ziel-keywords";
 import {
   seoBefundErledigt,
   seoBefundFreigeben,
@@ -49,6 +50,13 @@ export default async function SeoPage() {
         </div>
         <WebsiteCheck />
       </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Ziel-Keywords
+        </h2>
+        <ZielKeywords />
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
