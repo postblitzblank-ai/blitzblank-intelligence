@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -182,6 +183,22 @@ export const seoZielKeyword = pgTable("seo_ziel_keyword", {
   id: uuid("id").primaryKey().defaultRandom(),
   keyword: text("keyword").notNull(),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
+  // Zwischengespeicherte Google-Search-Console-Daten, täglich per Cron aktualisiert
+  aktuellePosition: real("aktuelle_position"),
+  impressionen: integer("impressionen"),
+  klicks: integer("klicks"),
+  zuletztGeprueftAm: timestamp("zuletzt_geprueft_am"),
+});
+
+/**
+ * Speichert den Google-Refresh-Token dauerhaft (nicht nur in der Browser-
+ * Session), damit tägliche Hintergrund-Jobs (Cron) ohne aktiven Login
+ * auf Gmail/Search Console zugreifen können. Single-Row-Tabelle (V1).
+ */
+export const googleVerbindung = pgTable("google_verbindung", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  refreshToken: text("refresh_token").notNull(),
+  aktualisiertAm: timestamp("aktualisiert_am").notNull().defaultNow(),
 });
 
 export const firmaRelations = relations(firma, ({ many }) => ({

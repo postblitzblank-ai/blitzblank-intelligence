@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PositionBadge } from "@/components/ziel-keywords";
 import { db } from "@/db";
 import { firma, followup, chance, seoBefund } from "@/db/schema";
 import { and, count, eq, lte } from "drizzle-orm";
@@ -27,6 +28,7 @@ export default async function Dashboard() {
     faelligeListe,
     seoOffen,
     seoAutonomHeute,
+    zielKeywords,
   ] = await Promise.all([
       db
         .select({ n: count() })
@@ -58,6 +60,9 @@ export default async function Dashboard() {
         where: (b, { eq: gleich }) => gleich(b.status, "offen"),
         orderBy: (b, { desc }) => desc(b.erstelltAm),
         limit: 5,
+      }),
+      db.query.seoZielKeyword.findMany({
+        orderBy: (k, { asc }) => asc(k.erstelltAm),
       }),
     ]);
 
@@ -143,6 +148,29 @@ export default async function Dashboard() {
           </Card>
         )}
       </section>
+
+      {zielKeywords.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Keyword-Rankings
+          </h2>
+          <Card>
+            <CardContent>
+              <ul className="space-y-2.5">
+                {zielKeywords.map((k) => (
+                  <li key={k.id} className="flex items-center justify-between gap-4">
+                    <span className="truncate text-sm font-medium">{k.keyword}</span>
+                    <PositionBadge position={k.aktuellePosition} />
+                  </li>
+                ))}
+              </ul>
+              <Button asChild size="sm" variant="secondary" className="mt-3">
+                <Link href="/seo">Details im SEO-Center</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">SEO heute</h2>

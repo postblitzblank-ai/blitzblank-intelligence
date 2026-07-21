@@ -8,9 +8,11 @@ import { seoBefund, seoZielKeyword } from "@/db/schema";
 import { eq, ilike } from "drizzle-orm";
 import {
   letzte28Tage,
+  positionFuerKeyword,
   searchAnalyticsAbfragen,
   verifizierteSiteFinden,
 } from "@/lib/search-console";
+import { hintergrundAccessTokenHolen } from "@/lib/google-token";
 
 const anthropic = new Anthropic();
 
@@ -23,6 +25,14 @@ type BefundVorschlag = {
   freigabeNoetig: boolean;
   quelleUrl?: string;
 };
+
+/** Nutzt die Browser-Session, falls vorhanden (manueller Klick), sonst den
+ * dauerhaft gespeicherten Refresh-Token (Cron / Hintergrund-Jobs). */
+async function googleAccessTokenHolen() {
+  const session = await auth();
+  if (session?.accessToken) return session.accessToken;
+  return hintergrundAccessTokenHolen();
+}
 
 async function befundeSpeichern(befunde: BefundVorschlag[], standardQuelle: string) {
   for (const b of befunde) {
@@ -191,6 +201,42 @@ export async function zielKeywordEntfernen(formData: FormData) {
 }
 
 /**
+ * Prüft für jedes Ziel-Keyword die echte aktuelle Google-Position und
+ * speichert sie. Läuft sowohl manuell (Button) als auch automatisch
+ * per Cron — deshalb kein direkter auth()-Zwang, sondern der Fallback
+ * auf den dauerhaft gespeicherten Google-Zugang.
+ */
+export async function zielKeywordsAktualisieren() {
+  const accessToken = await googleAccessTokenHolen();
+  if (!accessToken) {
+    throw new Error("Nicht mit Google verbunden.");
+  }
+
+  const site = await verifizierteSiteFinden(accessToken);
+  if (!site) {
+    throw new Error("Keine verifizierte Search-Console-Property gefunden.");
+  }
+
+  const keywords = await db.query.seoZielKeyword.findMany();
+
+  for (const k of keywords) {
+    const ergebnis = await positionFuerKeyword(accessToken, site.siteUrl, k.keyword);
+    await db
+      .update(seoZielKeyword)
+      .set({
+        aktuellePosition: ergebnis?.position ?? null,
+        impressionen: ergebnis?.impressionen ?? null,
+        klicks: ergebnis?.klicks ?? null,
+        zuletztGeprueftAm: new Date(),
+      })
+      .where(eq(seoZielKeyword.id, k.id));
+  }
+
+  revalidatePath("/seo");
+  revalidatePath("/");
+}
+
+/**
  * Baut aktiv auf die vom Nutzer festgelegten Ziel-Keywords hin auf (z. B.
  * "Gebäudereinigung Berlin") — nicht nur eine Analyse dessen, was bereits
  * rankt. Echte Search-Console-Daten dienen dabei als Kontext, wo vorhanden.
@@ -213,13 +259,13 @@ async function keywordStrategieDurchfuehren() {
     "Nicht mit Google Search Console verbunden — keine echten Rankingdaten verfügbar.";
   let quelle = WEBSITE_URL;
 
-  const session = await auth();
-  if (session?.accessToken) {
+  const accessToken = await googleAccessTokenHolen();
+  if (accessToken) {
     try {
-      const site = await verifizierteSiteFinden(session.accessToken);
+      const site = await verifizierteSiteFinden(accessToken);
       if (site) {
         quelle = site.siteUrl;
-        const zeilen = await searchAnalyticsAbfragen(session.accessToken, site.siteUrl, {
+        const zeilen = await searchAnalyticsAbfragen(accessToken, site.siteUrl, {
           ...letzte28Tage(),
           rowLimit: 50,
         });

@@ -69,6 +69,58 @@ export async function searchAnalyticsAbfragen(
   return (daten.rows ?? []) as SearchConsoleZeile[];
 }
 
+/**
+ * Aggregiertes Ranking für ein Ziel-Keyword: fasst alle echten Suchanfragen
+ * zusammen, die das Keyword enthalten (z. B. "gebäudereinigung berlin firma"
+ * zählt mit zu "Gebäudereinigung Berlin"), gewichtet die Position nach
+ * Impressionen. Gibt null zurück, wenn dafür noch keinerlei Daten vorliegen.
+ */
+export async function positionFuerKeyword(
+  accessToken: string,
+  siteUrl: string,
+  keyword: string
+) {
+  const { startDate, endDate } = letzte28Tage();
+  const daten = await scFetch(
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
+      siteUrl
+    )}/searchAnalytics/query`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        startDate,
+        endDate,
+        dimensions: ["query"],
+        dimensionFilterGroups: [
+          {
+            filters: [
+              {
+                dimension: "query",
+                operator: "contains",
+                expression: keyword.toLowerCase(),
+              },
+            ],
+          },
+        ],
+        rowLimit: 25,
+      }),
+    }
+  );
+
+  const zeilen = (daten.rows ?? []) as SearchConsoleZeile[];
+  if (zeilen.length === 0) return null;
+
+  const klicks = zeilen.reduce((s, z) => s + z.clicks, 0);
+  const impressionen = zeilen.reduce((s, z) => s + z.impressions, 0);
+  const position =
+    impressionen > 0
+      ? zeilen.reduce((s, z) => s + z.position * z.impressions, 0) / impressionen
+      : zeilen.reduce((s, z) => s + z.position, 0) / zeilen.length;
+
+  return { klicks, impressionen, position };
+}
+
 export function letzte28Tage() {
   const heute = new Date();
   const start = new Date(heute);

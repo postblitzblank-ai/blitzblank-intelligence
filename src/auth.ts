@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { accessTokenErneuern, refreshTokenSpeichern } from "@/lib/google-token";
 
 /**
  * Single-User-System (Konzept Abschnitt 13): Login ist ausschließlich über
@@ -14,26 +15,6 @@ const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/webmasters.readonly",
 ].join(" ");
-
-async function accessTokenErneuern(refreshToken: string) {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-  const daten = await response.json();
-  if (!response.ok) throw new Error("Token-Erneuerung fehlgeschlagen: " + JSON.stringify(daten));
-  return {
-    accessToken: daten.access_token as string,
-    expiresAt: Math.floor(Date.now() / 1000) + (daten.expires_in as number),
-    refreshToken: (daten.refresh_token as string | undefined) ?? refreshToken,
-  };
-}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -56,6 +37,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
+        // Zusätzlich dauerhaft speichern, damit Cron-Jobs ohne Browser-Session
+        // auf Gmail/Search Console zugreifen können.
+        if (account.refresh_token) {
+          await refreshTokenSpeichern(account.refresh_token);
+        }
         return token;
       }
 
