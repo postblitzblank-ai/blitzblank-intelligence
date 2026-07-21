@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navigation } from "@/components/navigation";
@@ -18,6 +18,25 @@ export const metadata: Metadata = {
   title: "Blitzblank Intelligence",
   description:
     "Digitaler Geschäftsführungs-Assistent der Blitzblank Dienstleistung UG",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Blitzblank",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -33,8 +52,10 @@ export default function RootLayout({
       <body className="min-h-full">
         <Navigation />
         <CommandBar />
-        <main className="pl-56">
-          <div className="mx-auto max-w-5xl px-8 py-10">{children}</div>
+        <main className="pt-14 md:pt-0 md:pl-56">
+          <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
+            {children}
+          </div>
         </main>
       </body>
     </html>
