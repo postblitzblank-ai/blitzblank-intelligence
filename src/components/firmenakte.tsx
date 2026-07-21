@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   aktivitaetErfassen,
   ansprechpartnerHinzufuegen,
+  auftragAbschliessen,
   notizenSpeichern,
 } from "@/app/actions/firma";
 import { followupAbschliessen, followupPlanen } from "@/app/actions/followup";
@@ -54,10 +55,16 @@ export async function Firmenakte({
       ansprechpartner: true,
       aktivitaeten: { orderBy: (a, { desc }) => desc(a.datum) },
       followups: { orderBy: (f, { asc }) => asc(f.faelligAm) },
+      auftraege: {
+        orderBy: (a, { desc }) => desc(a.erstelltAm),
+        with: { bewertungsanfragen: true },
+      },
     },
   });
 
   if (!akte) notFound();
+
+  const laufenderAuftrag = akte.auftraege.find((a) => a.status === "gewonnen");
 
   return (
     <div className="space-y-8">
@@ -220,6 +227,37 @@ export async function Firmenakte({
           </CardContent>
         </Card>
       </section>
+
+      {akte.auftraege.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">Auftrag</h2>
+          <Card>
+            <CardContent className="space-y-3">
+              {laufenderAuftrag ? (
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Auftrag gewonnen — bei Abschluss wird automatisch eine
+                    Bewertungsanfrage vorbereitet.
+                  </p>
+                  <form action={auftragAbschliessen}>
+                    <input type="hidden" name="firmaId" value={akte.id} />
+                    <Button type="submit" size="sm" variant="secondary">
+                      Auftrag abschließen
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Abgeschlossen. Bewertungsanfrage:{" "}
+                  {akte.auftraege.flatMap((a) => a.bewertungsanfragen).length > 0
+                    ? akte.auftraege.flatMap((a) => a.bewertungsanfragen)[0].status
+                    : "—"}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Historie</h2>

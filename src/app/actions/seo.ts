@@ -36,6 +36,8 @@ async function googleAccessTokenHolen() {
 
 async function befundeSpeichern(befunde: BefundVorschlag[], standardQuelle: string) {
   for (const b of befunde) {
+    if (!b.titel?.trim() || !b.beschreibung?.trim() || !b.kategorie) continue;
+
     const existiert = await db.query.seoBefund.findFirst({
       where: ilike(seoBefund.titel, b.titel),
     });

@@ -137,6 +137,8 @@ export async function firmenRecherche(formData: FormData) {
   }
 
   for (const kandidat of firmenListe) {
+    if (!kandidat.name?.trim() || !kandidat.begruendung?.trim()) continue;
+
     const existiert = await db.query.firma.findFirst({
       where: and(eq(firma.typ, typ), ilike(firma.name, kandidat.name)),
     });

@@ -137,6 +137,8 @@ export const chance = pgTable("chance", {
   id: uuid("id").primaryKey().defaultRandom(),
   titel: text("titel").notNull(),
   signaltyp: signaltypEnum("signaltyp").notNull(),
+  beschreibung: text("beschreibung"),
+  quelleUrl: text("quelle_url"),
   status: chanceStatusEnum("status").notNull().default("neu"),
   firmaId: uuid("firma_id").references(() => firma.id, { onDelete: "set null" }),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
@@ -193,6 +195,16 @@ export const seoZielKeyword = pgTable("seo_ziel_keyword", {
   impressionen: integer("impressionen"),
   klicks: integer("klicks"),
   zuletztGeprueftAm: timestamp("zuletzt_geprueft_am"),
+});
+
+/**
+ * Unternehmensanalyse (Modul 11): Erkenntnisse als fertige Sätze, keine
+ * Rohdaten-Tabelle. Wird komplett neu erzeugt bei jeder Aktualisierung.
+ */
+export const analyseErkenntnis = pgTable("analyse_erkenntnis", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  text: text("text").notNull(),
+  erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 
 /**

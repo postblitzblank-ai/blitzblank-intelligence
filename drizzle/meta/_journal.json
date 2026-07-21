@@ -43,6 +43,20 @@
       "when": 1784646868699,
       "tag": "0005_ansprechpartner_anrede",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784647331739,
+      "tag": "0006_chance_beschreibung",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784647481355,
+      "tag": "0007_analyse_erkenntnis",
+      "breakpoints": true
     }
   ]
 }

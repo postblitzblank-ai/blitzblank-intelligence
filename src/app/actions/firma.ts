@@ -113,6 +113,7 @@ export async function aktivitaetErfassen(formData: FormData) {
   }
 
   if (typ === "auftrag_gewonnen") {
+    await db.insert(auftrag).values({ firmaId, status: "gewonnen" });
     await db
       .update(firma)
       .set({ status: "gewonnen", aktualisiertAm: new Date() })
@@ -125,6 +126,32 @@ export async function aktivitaetErfassen(formData: FormData) {
   }
 
   revalidatePath("/");
+  revalidatePath(`/direktkunden/${firmaId}`);
+  revalidatePath(`/nachunternehmer/${firmaId}`);
+}
+
+/**
+ * Konzept Modul 9: löst bei Auftrag "abgeschlossen" automatisch eine
+ * Bewertungsanfrage aus. Einsatzplanung ist V2 — AUFTRAG bleibt ein
+ * einfacher Stub, nur der Status- und Folgeaktions-Übergang zählt hier.
+ */
+export async function auftragAbschliessen(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  if (!firmaId) return;
+
+  const offenerAuftrag = await db.query.auftrag.findFirst({
+    where: (a, { eq: gleich, and: und }) => und(gleich(a.firmaId, firmaId), gleich(a.status, "gewonnen")),
+    orderBy: (a, { desc }) => desc(a.erstelltAm),
+  });
+  if (!offenerAuftrag) return;
+
+  await db.update(auftrag).set({ status: "abgeschlossen" }).where(eq(auftrag.id, offenerAuftrag.id));
+
+  await db.insert(bewertungsanfrage).values({
+    auftragId: offenerAuftrag.id,
+    status: "vorbereitet",
+  });
+
   revalidatePath(`/direktkunden/${firmaId}`);
   revalidatePath(`/nachunternehmer/${firmaId}`);
 }
