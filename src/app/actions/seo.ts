@@ -141,7 +141,7 @@ Beschreibe für jeden Befund konkret, was du auf der Seite gesehen hast — kein
 
   const extraktion = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 2048,
+    max_tokens: 4096,
     tool_choice: { type: "tool", name: "seo_befunde_melden" },
     tools: [befundVorschlagenTool],
     messages: [
@@ -152,13 +152,21 @@ Beschreibe für jeden Befund konkret, was du auf der Seite gesehen hast — kein
     ],
   });
 
+  if (extraktion.stop_reason === "max_tokens") {
+    throw new Error(
+      "Antwort wurde beim Erstellen abgeschnitten (zu lang). Bitte erneut versuchen."
+    );
+  }
+
   const toolUse = extraktion.content.find(
     (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
   );
   const befunde = (toolUse?.input as { befunde?: BefundVorschlag[] } | undefined)
     ?.befunde;
 
-  if (!befunde?.length) return;
+  if (!befunde?.length) {
+    throw new Error("Keine Befunde erhalten. Bitte erneut versuchen.");
+  }
   await befundeSpeichern(befunde, WEBSITE_URL);
 }
 
@@ -262,11 +270,17 @@ Gib 3-6 konkrete, priorisierte Maßnahmen. Nenne bei jeder Maßnahme das konkret
 
   const antwort = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 3072,
+    max_tokens: 8192,
     tool_choice: { type: "tool", name: "seo_befunde_melden" },
     tools: [befundVorschlagenTool],
     messages: [{ role: "user", content: prompt }],
   });
+
+  if (antwort.stop_reason === "max_tokens") {
+    throw new Error(
+      "Antwort wurde beim Erstellen abgeschnitten (zu lang). Bitte erneut versuchen."
+    );
+  }
 
   const toolUse = antwort.content.find(
     (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
@@ -274,7 +288,9 @@ Gib 3-6 konkrete, priorisierte Maßnahmen. Nenne bei jeder Maßnahme das konkret
   const befunde = (toolUse?.input as { befunde?: BefundVorschlag[] } | undefined)
     ?.befunde;
 
-  if (!befunde?.length) return;
+  if (!befunde?.length) {
+    throw new Error("Keine Befunde erhalten. Bitte erneut versuchen.");
+  }
   await befundeSpeichern(befunde, quelle);
 }
 
