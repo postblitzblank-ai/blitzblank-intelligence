@@ -29,6 +29,20 @@
       "when": 1784642320004,
       "tag": "0003_ranking_cache_und_google_verbindung",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784646791383,
+      "tag": "0004_firma_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784646868699,
+      "tag": "0005_ansprechpartner_anrede",
+      "breakpoints": true
     }
   ]
 }

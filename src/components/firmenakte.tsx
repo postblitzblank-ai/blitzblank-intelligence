@@ -125,11 +125,20 @@ export async function Firmenakte({
             <Separator />
             <form
               action={ansprechpartnerHinzufuegen}
-              className="grid grid-cols-2 gap-3 lg:grid-cols-6"
+              className="grid grid-cols-2 gap-3 lg:grid-cols-7"
             >
               <input type="hidden" name="firmaId" value={akte.id} />
               <Input name="vorname" placeholder="Vorname" />
               <Input name="nachname" placeholder="Nachname *" required />
+              <select
+                name="anrede"
+                defaultValue=""
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                <option value="">Anrede unbekannt</option>
+                <option value="Herr">Herr</option>
+                <option value="Frau">Frau</option>
+              </select>
               <Input name="rolle" placeholder="Rolle" />
               <Input name="email" placeholder="E-Mail" type="email" />
               <Input name="telefon" placeholder="Telefon" />

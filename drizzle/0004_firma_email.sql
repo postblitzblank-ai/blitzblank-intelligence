@@ -1,0 +1,1 @@
+ALTER TABLE "firma" ADD COLUMN "email" text;

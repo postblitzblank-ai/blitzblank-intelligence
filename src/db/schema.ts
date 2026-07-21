@@ -72,6 +72,8 @@ export const firma = pgTable("firma", {
   name: text("name").notNull(),
   branche: text("branche"),
   region: text("region"),
+  // Allgemeine Firmenadresse (info@...), falls kein Ansprechpartner bekannt ist
+  email: text("email"),
   herkunftKanal: herkunftKanalEnum("herkunft_kanal").notNull(),
   status: text("status").notNull().default("neu"),
   begruendung: text("begruendung"),
@@ -87,6 +89,9 @@ export const ansprechpartner = pgTable("ansprechpartner", {
     .references(() => firma.id, { onDelete: "cascade" }),
   vorname: text("vorname"),
   nachname: text("nachname"),
+  // "Herr"/"Frau", nur gesetzt wenn sicher bekannt (nie automatisch geraten) —
+  // sonst greift beim Versand die neutrale Anrede statt eines Rate-Risikos
+  anrede: text("anrede"),
   rolle: text("rolle"),
   email: text("email"),
   telefon: text("telefon"),

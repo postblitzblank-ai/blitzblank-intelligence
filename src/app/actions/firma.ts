@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { firma, ansprechpartner, aktivitaet, followup } from "@/db/schema";
+import { firma, ansprechpartner, aktivitaet, followup, auftrag, bewertungsanfrage } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const modulPfad = {
@@ -23,6 +23,7 @@ export async function firmaErfassen(formData: FormData) {
       name,
       branche: (formData.get("branche") as string)?.trim() || null,
       region: (formData.get("region") as string)?.trim() || null,
+      email: (formData.get("email") as string)?.trim() || null,
       herkunftKanal:
         (formData.get("herkunftKanal") as
           | "ausgehend"
@@ -41,10 +42,13 @@ export async function ansprechpartnerHinzufuegen(formData: FormData) {
   const nachname = (formData.get("nachname") as string)?.trim();
   if (!firmaId || !nachname) return;
 
+  const anrede = formData.get("anrede") as string;
+
   await db.insert(ansprechpartner).values({
     firmaId,
     vorname: (formData.get("vorname") as string)?.trim() || null,
     nachname,
+    anrede: anrede === "Herr" || anrede === "Frau" ? anrede : null,
     rolle: (formData.get("rolle") as string)?.trim() || null,
     email: (formData.get("email") as string)?.trim() || null,
     telefon: (formData.get("telefon") as string)?.trim() || null,

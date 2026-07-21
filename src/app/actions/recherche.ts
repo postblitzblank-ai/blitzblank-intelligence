@@ -3,7 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { firma } from "@/db/schema";
+import { firma, ansprechpartner } from "@/db/schema";
 import { eq, and, ilike } from "drizzle-orm";
 
 const anthropic = new Anthropic();
@@ -40,6 +40,22 @@ const firmenVorschlagenTool: Anthropic.Tool = {
               description:
                 'Kurzer Klartext-Grund in einem Satz, z. B. "sucht Subunternehmer für Gebäudereinigung" oder "neue Niederlassung im Aufbau".',
             },
+            email: {
+              type: "string",
+              description:
+                "Allgemeine Firmen-E-Mail (z. B. info@firma.de), NUR wenn tatsächlich auf der Website gefunden. Niemals raten oder erfinden.",
+            },
+            ansprechpartnerNachname: {
+              type: "string",
+              description:
+                "Nachname eines konkreten Ansprechpartners, NUR wenn explizit namentlich auf der Website genannt (z. B. Impressum, Team-Seite). Sonst weglassen.",
+            },
+            ansprechpartnerAnrede: {
+              type: "string",
+              enum: ["Herr", "Frau"],
+              description:
+                "NUR setzen, wenn auf der Quelle explizit 'Herr'/'Frau' oder ein eindeutiger Titel (z. B. 'Ansprechpartnerin') beim Namen steht. Im Zweifel weglassen, niemals aus dem Vornamen raten.",
+            },
           },
           required: ["name", "begruendung"],
         },
@@ -54,30 +70,38 @@ export async function firmenRecherche(formData: FormData) {
   const hinweis = (formData.get("hinweis") as string)?.trim();
   if (!modulPfad[typ]) return;
 
-  const rechercheAntwort = await anthropic.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 1536,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-    messages: [
-      {
-        role: "user",
-        content: `Recherchiere im Web nach: ${rechercheAuftrag[typ]}${
-          hinweis ? `\n\nZusätzlicher Hinweis vom Nutzer: ${hinweis}` : ""
-        }\n\nNenne 3-6 konkrete, real existierende Firmen mit Name, Ort und einem kurzen Grund, warum sie ein passender Kontakt sind (z. B. Stellenanzeige, Expansion, öffentlich bekannter Bedarf). Nutze für jede Angabe eine Quelle aus deiner Websuche.`,
-      },
-    ],
-  });
+  const rechercheAntwort = await anthropic.messages.create(
+    {
+      model: "claude-sonnet-5",
+      max_tokens: 4096,
+      tools: [
+        { type: "web_search_20250305", name: "web_search", max_uses: 4 },
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 4 },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: `Recherchiere im Web nach: ${rechercheAuftrag[typ]}${
+            hinweis ? `\n\nZusätzlicher Hinweis vom Nutzer: ${hinweis}` : ""
+          }\n\nNenne 3-6 konkrete, real existierende Firmen mit Name, Ort und einem kurzen Grund, warum sie ein passender Kontakt sind (z. B. Stellenanzeige, Expansion, öffentlich bekannter Bedarf). Nutze für jede Angabe eine Quelle aus deiner Websuche.\n\nRufe anschließend für jede gefundene Firma kurz die eigene Website auf (Kontakt-/Impressum-Seite) und notiere, falls vorhanden: die allgemeine E-Mail-Adresse (z. B. info@...) und einen namentlich genannten Ansprechpartner samt eindeutiger Anrede (nur wenn "Herr"/"Frau" oder ein eindeutiger Titel wörtlich dabeisteht — sonst nichts dazu schreiben, nicht raten).`,
+        },
+      ],
+    },
+    { headers: { "anthropic-beta": "web-fetch-2025-09-10" } }
+  );
 
   const rechercheText = rechercheAntwort.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
     .map((c) => c.text)
     .join("\n");
 
-  if (!rechercheText.trim()) return;
+  if (!rechercheText.trim()) {
+    throw new Error("Recherche lieferte kein Ergebnis. Bitte erneut versuchen.");
+  }
 
   const extraktion = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 1024,
+    max_tokens: 2048,
     tool_choice: { type: "tool", name: "firmen_vorschlagen" },
     tools: [firmenVorschlagenTool],
     messages: [
@@ -88,15 +112,29 @@ export async function firmenRecherche(formData: FormData) {
     ],
   });
 
+  if (extraktion.stop_reason === "max_tokens") {
+    throw new Error("Antwort wurde abgeschnitten (zu lang). Bitte erneut versuchen.");
+  }
+
   const toolUse = extraktion.content.find(
     (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
   );
   const firmenListe = (toolUse?.input as { firmen?: unknown[] } | undefined)
     ?.firmen as
-    | { name: string; branche?: string; region?: string; begruendung: string }[]
+    | {
+        name: string;
+        branche?: string;
+        region?: string;
+        begruendung: string;
+        email?: string;
+        ansprechpartnerNachname?: string;
+        ansprechpartnerAnrede?: "Herr" | "Frau";
+      }[]
     | undefined;
 
-  if (!firmenListe?.length) return;
+  if (!firmenListe?.length) {
+    throw new Error("Keine konkreten Firmen gefunden. Bitte erneut versuchen.");
+  }
 
   for (const kandidat of firmenListe) {
     const existiert = await db.query.firma.findFirst({
@@ -104,15 +142,28 @@ export async function firmenRecherche(formData: FormData) {
     });
     if (existiert) continue;
 
-    await db.insert(firma).values({
-      typ,
-      name: kandidat.name,
-      branche: kandidat.branche || null,
-      region: kandidat.region || null,
-      herkunftKanal: "ausgehend",
-      status: "vorschlag",
-      begruendung: kandidat.begruendung,
-    });
+    const [neu] = await db
+      .insert(firma)
+      .values({
+        typ,
+        name: kandidat.name,
+        branche: kandidat.branche || null,
+        region: kandidat.region || null,
+        email: kandidat.email || null,
+        herkunftKanal: "ausgehend",
+        status: "vorschlag",
+        begruendung: kandidat.begruendung,
+      })
+      .returning({ id: firma.id });
+
+    if (kandidat.ansprechpartnerNachname) {
+      await db.insert(ansprechpartner).values({
+        firmaId: neu.id,
+        nachname: kandidat.ansprechpartnerNachname,
+        anrede: kandidat.ansprechpartnerAnrede || null,
+        email: kandidat.email || null,
+      });
+    }
   }
 
   revalidatePath(modulPfad[typ]);

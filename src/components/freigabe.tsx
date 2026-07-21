@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { db } from "@/db";
 import {
   Card,
@@ -9,8 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { AlleSenden } from "@/components/alle-senden";
 
 /**
  * Sammel-Freigabe gemäß Konzept Modul 8: Empfängerliste oben mit Status-Badge,
@@ -131,12 +131,10 @@ export async function Freigabe({
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
-          Der Versand über dein Gmail-Konto wird freigeschaltet, sobald die
-          Google-Anbindung eingerichtet ist.
+          Versand läuft über dein verbundenes Gmail-Konto. Jede Firma bekommt
+          eine E-Mail, die Anrede wird individuell ersetzt.
         </p>
-        <Button disabled>
-          <Mail className="size-4" /> Alle senden ({empfaenger.length})
-        </Button>
+        <AlleSenden typ={typ} anzahl={empfaenger.length} />
       </div>
     </div>
   );

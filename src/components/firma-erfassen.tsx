@@ -46,6 +46,11 @@ export function FirmaErfassen({
             <Input name="branche" placeholder="Branche" />
             <Input name="region" placeholder="Region" />
           </div>
+          <Input
+            name="email"
+            type="email"
+            placeholder="Allgemeine E-Mail-Adresse (z. B. info@firma.de)"
+          />
           <select
             name="herkunftKanal"
             defaultValue={typ === "direktkunde" ? "eingehend_telefon" : "ausgehend"}

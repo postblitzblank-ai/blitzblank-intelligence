@@ -21,6 +21,7 @@ export function KiRecherche({
 }) {
   const [open, setOpen] = React.useState(false);
   const [laeuft, setLaeuft] = React.useState(false);
+  const [fehler, setFehler] = React.useState<string | null>(null);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !laeuft && setOpen(o)}>
@@ -40,9 +41,15 @@ export function KiRecherche({
         <form
           action={async (formData) => {
             setLaeuft(true);
-            await firmenRecherche(formData);
-            setLaeuft(false);
-            setOpen(false);
+            setFehler(null);
+            try {
+              await firmenRecherche(formData);
+              setOpen(false);
+            } catch (e) {
+              setFehler(e instanceof Error ? e.message : "Recherche fehlgeschlagen.");
+            } finally {
+              setLaeuft(false);
+            }
           }}
           className="space-y-3"
         >
@@ -55,6 +62,7 @@ export function KiRecherche({
           <Button type="submit" className="w-full" disabled={laeuft}>
             {laeuft ? "Recherche läuft …" : "Recherche starten"}
           </Button>
+          {fehler && <p className="text-sm text-destructive">{fehler}</p>}
         </form>
       </DialogContent>
     </Dialog>

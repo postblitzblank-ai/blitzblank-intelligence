@@ -1,0 +1,1 @@
+ALTER TABLE "ansprechpartner" ADD COLUMN "anrede" text;
