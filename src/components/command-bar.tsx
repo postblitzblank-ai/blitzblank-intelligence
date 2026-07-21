@@ -21,9 +21,14 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { befehlAusfuehren } from "@/app/actions/befehl";
 
 export function CommandBar() {
   const [open, setOpen] = React.useState(false);
+  const [wert, setWert] = React.useState("");
+  const [laeuft, setLaeuft] = React.useState(false);
+  const [antwort, setAntwort] = React.useState<string | null>(null);
+  const [fehler, setFehler] = React.useState<string | null>(null);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -42,21 +47,79 @@ export function CommandBar() {
     router.push(href);
   };
 
+  const schliessenUndZuruecksetzen = (o: boolean) => {
+    setOpen(o);
+    if (!o) {
+      setWert("");
+      setAntwort(null);
+      setFehler(null);
+    }
+  };
+
+  const befehlStellen = async () => {
+    if (!wert.trim() || laeuft) return;
+    setLaeuft(true);
+    setFehler(null);
+    setAntwort(null);
+    try {
+      const formData = new FormData();
+      formData.set("text", wert);
+      const ergebnis = await befehlAusfuehren(formData);
+      setAntwort(ergebnis);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Befehl fehlgeschlagen.");
+    } finally {
+      setLaeuft(false);
+    }
+  };
+
   return (
     <CommandDialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={schliessenUndZuruecksetzen}
       title="KI-Assistent"
       description="Befehl eingeben oder Modul öffnen"
     >
-      <Command>
-        <CommandInput placeholder="Befehl eingeben … (z. B. „Priorisiere Hotels“)" />
+      <Command shouldFilter={!antwort && !laeuft}>
+        <CommandInput
+          placeholder="Befehl eingeben … (z. B. „Priorisiere Hotels“)"
+          value={wert}
+          onValueChange={(v) => {
+            setWert(v);
+            setAntwort(null);
+            setFehler(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") befehlStellen();
+          }}
+        />
         <CommandList>
         <CommandEmpty>
-          <span className="flex items-center justify-center gap-2 text-muted-foreground">
-            <Sparkles className="size-4" />
-            Freie KI-Befehle folgen in einem späteren Schritt.
-          </span>
+          {laeuft ? (
+            <span className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Sparkles className="size-4 animate-pulse" />
+              Denke nach …
+            </span>
+          ) : antwort ? (
+            <div className="px-2 py-1 text-left text-sm whitespace-pre-wrap">
+              {antwort}
+            </div>
+          ) : fehler ? (
+            <span className="text-sm text-destructive">{fehler}</span>
+          ) : wert.trim() ? (
+            <button
+              onClick={befehlStellen}
+              className="flex w-full items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <Sparkles className="size-4" />
+              KI fragen: „{wert}“ (Enter)
+            </button>
+          ) : (
+            <span className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Sparkles className="size-4" />
+              Freien Befehl eingeben oder Modul auswählen.
+            </span>
+          )}
         </CommandEmpty>
         <CommandGroup heading="Module">
           <CommandItem onSelect={() => go("/")}>
