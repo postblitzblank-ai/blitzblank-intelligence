@@ -139,6 +139,9 @@ export const chance = pgTable("chance", {
   signaltyp: signaltypEnum("signaltyp").notNull(),
   beschreibung: text("beschreibung"),
   quelleUrl: text("quelle_url"),
+  /** Konkreter naechster Schritt fuer den Nutzer, z. B. wen ansprechen oder
+   * welche verlorenen Auftraege/Kunden gezielt angegangen werden koennen. */
+  handlungsempfehlung: text("handlungsempfehlung"),
   status: chanceStatusEnum("status").notNull().default("neu"),
   firmaId: uuid("firma_id").references(() => firma.id, { onDelete: "set null" }),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),

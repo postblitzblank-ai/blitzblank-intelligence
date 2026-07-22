@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { ChanceRadar } from "@/components/chance-radar";
 import { ChanceZuFirma } from "@/components/chance-zu-firma";
 import { chanceVerwerfen } from "@/app/actions/marketing";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Lightbulb } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+// Chancen-Radar (web_search) dauert regelmässig 20-40s -- ohne dieses Limit
+// killt Vercels Standard-Timeout die Server Action vorzeitig.
+export const maxDuration = 120;
 
 const signaltypLabel: Record<string, string> = {
   bauprojekt: "Bauprojekt",
@@ -65,6 +68,12 @@ export default async function MarketingPage() {
                       <p className="font-medium">{c.titel}</p>
                     </div>
                     <p className="text-sm text-muted-foreground">{c.beschreibung}</p>
+                    {c.handlungsempfehlung && (
+                      <div className="mt-2 flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                        <Lightbulb className="mt-0.5 size-3.5 shrink-0" />
+                        <span>{c.handlungsempfehlung}</span>
+                      </div>
+                    )}
                     {c.quelleUrl && (
                       <a
                         href={externeUrl(c.quelleUrl)}

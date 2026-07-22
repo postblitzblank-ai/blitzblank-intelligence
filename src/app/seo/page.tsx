@@ -13,6 +13,9 @@ import {
 import { ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+// Website-Check (web_fetch) und Keyword-Strategie koennen 30-60s dauern --
+// ohne dieses Limit killt Vercels Standard-Timeout die Server Action vorzeitig.
+export const maxDuration = 120;
 
 function externeUrl(url: string) {
   return /^https?:\/\//.test(url) ? url : `https://${url}`;

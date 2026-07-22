@@ -1,0 +1,1 @@
+ALTER TABLE "chance" ADD COLUMN "handlungsempfehlung" text;

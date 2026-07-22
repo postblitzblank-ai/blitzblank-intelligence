@@ -57,6 +57,13 @@
       "when": 1784647481355,
       "tag": "0007_analyse_erkenntnis",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784726719007,
+      "tag": "0008_chance_handlungsempfehlung",
+      "breakpoints": true
     }
   ]
 }

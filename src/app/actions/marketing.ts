@@ -27,11 +27,17 @@ const chancenVorschlagenTool: Anthropic.Tool = {
             },
             beschreibung: {
               type: "string",
-              description: "Konkrete Beobachtung in 1-2 Sätzen, mit Bezug zur Quelle",
+              description:
+                "Konkrete Beobachtung in 2-4 Sätzen, mit Bezug zur Quelle. Bei Wettbewerbsschwäche/Insolvenz: wenn bekannt, welche Kunden/Aufträge/Standorte betroffen waren; sonst plausibel einordnen (z. B. übliche Kundengruppen dieser Firmengröße/Region).",
+            },
+            handlungsempfehlung: {
+              type: "string",
+              description:
+                'Ein konkreter, umsetzbarer nächster Schritt für den Nutzer in 1-3 Sätzen. Z.B. bei Insolvenz/Auftragsverlust: "Diese Firma hat vermutlich Aufträge bei [Kundentyp] in [Region] verloren — sprich gezielt Hausverwaltungen/Objekte in diesem Umkreis an, die kürzlich den Reinigungsdienstleister gewechselt haben könnten." Bei Bauprojekt: konkret nennen, wen man ansprechen sollte (Bauträger, Projektentwickler, Hausverwaltung) und wann (z.B. "jetzt vor Fertigstellung kontaktieren, bevor ein Wettbewerber den Zuschlag bekommt"). Wenn kein konkreter Ansprechpartner bekannt ist, das transparent so sagen und stattdessen einen Rechercheweg vorschlagen (z.B. "Bauleiter über die Baustellentafel oder den Bauträger direkt ermitteln").',
             },
             quelleUrl: { type: "string" },
           },
-          required: ["titel", "signaltyp", "beschreibung"],
+          required: ["titel", "signaltyp", "beschreibung", "handlungsempfehlung"],
         },
       },
     },
@@ -55,18 +61,18 @@ export async function chanceRadarStarten() {
 async function chanceRadarDurchfuehren() {
   const antwort = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 4096,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+    max_tokens: 6144,
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
     messages: [
       {
         role: "user",
         content: `Du beobachtest den Markt für eine Gebäudereinigungsfirma (Blitzblank Dienstleistung UG) in Berlin, Brandenburg, Potsdam und Dresden. Suche nach aktuellen (möglichst den letzten 1-3 Monaten) Signalen in drei Kategorien:
 
-1. Bauprojekte: neue Bürogebäude, Gewerbeparks, Kliniken, Hotels, Logistikzentren, Pflegeheime im Bau oder kurz vor Fertigstellung — die brauchen bald Reinigungsdienstleister.
+1. Bauprojekte: neue Bürogebäude, Gewerbeparks, Kliniken, Hotels, Logistikzentren, Pflegeheime im Bau oder kurz vor Fertigstellung — die brauchen bald Reinigungsdienstleister. Wenn möglich: wer ist Bauträger/Projektentwickler/Hausverwaltung, gibt es einen namentlich genannten Ansprechpartner (Projektleiter, Geschäftsführer)?
 2. Expansion: Unternehmen, die neue Standorte/Niederlassungen in der Region eröffnen.
-3. Wettbewerb: Hinweise auf Probleme bei Mitbewerbern (schlechte Bewertungen, Insolvenzen, Beschwerden über Reinigungsdienstleister) — mögliche Wechselbereitschaft.
+3. Wettbewerb: Hinweise auf Probleme bei Mitbewerbern (schlechte Bewertungen, Insolvenzen, Geschäftsaufgaben, Beschwerden über Reinigungsdienstleister) — mögliche Wechselbereitschaft. Wenn eine Reinigungsfirma insolvent ist oder aufgibt: recherchiere nach Möglichkeit, welche Kunden/Objekte/Standorte sie betreut hat (Referenzen auf der Website, Presseartikel, Handelsregister-Bekanntmachungen) — das sind die Aufträge, die jetzt neu vergeben werden.
 
-Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Keine Erfindungen — nur was du in der Websuche tatsächlich findest.`,
+Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere aktiv nach einem konkreten nächsten Schritt (wen kontaktieren, welche Kunden/Objekte betroffen sein könnten) statt nur die reine Beobachtung zu melden. Keine Erfindungen — nur was du in der Websuche tatsächlich findest; wenn ein Detail (z. B. Ansprechpartner) nicht auffindbar ist, sag das ehrlich statt zu raten.`,
       },
     ],
   });
@@ -82,7 +88,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Keine Erfindungen — nur was d
 
   const extraktion = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 3072,
+    max_tokens: 4096,
     tool_choice: { type: "tool", name: "chancen_melden" },
     tools: [chancenVorschlagenTool],
     messages: [
@@ -107,6 +113,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Keine Erfindungen — nur was d
             titel: string;
             signaltyp: "bauprojekt" | "wettbewerb" | "expansion";
             beschreibung: string;
+            handlungsempfehlung?: string;
             quelleUrl?: string;
           }[];
         }
@@ -129,6 +136,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Keine Erfindungen — nur was d
       titel: c.titel,
       signaltyp: c.signaltyp,
       beschreibung: c.beschreibung,
+      handlungsempfehlung: c.handlungsempfehlung?.trim() || null,
       quelleUrl: c.quelleUrl || null,
     });
   }
