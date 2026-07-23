@@ -64,6 +64,13 @@
       "when": 1784726719007,
       "tag": "0008_chance_handlungsempfehlung",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784781467139,
+      "tag": "0009_chance_tiefenanalyse",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,11 @@ const chancenVorschlagenTool: Anthropic.Tool = {
               description:
                 "Konkrete Beobachtung in 2-4 Sätzen, mit Bezug zur Quelle. Bei Wettbewerbsschwäche/Insolvenz: wenn bekannt, welche Kunden/Aufträge/Standorte betroffen waren; sonst plausibel einordnen (z. B. übliche Kundengruppen dieser Firmengröße/Region).",
             },
+            tiefenanalyse: {
+              type: "string",
+              description:
+                'NUR bei signaltyp "wettbewerb" (Insolvenz/Geschäftsaufgabe/Schwäche eines Mitbewerbers): eine strukturierte Analyse in 3-5 Sätzen, die konkret durchgeht: (1) Welche Objekte/Standorte/Kundentypen hatte diese Firma vermutlich oder nachweislich betreut? (2) Wo liegen diese geografisch? (3) Wer übernimmt diese Objekte wahrscheinlich (andere Facility-Management-Firmen, die in der Region aktiv sind und wachsen)? (4) Welche konkrete Chance ergibt sich daraus für Blitzblank, und wie zeitkritisch ist sie? Wenn Details unbekannt sind, das offen so benennen und stattdessen plausibel aus Firmengröße/Region/Branche ableiten statt zu erfinden. Bei bauprojekt/expansion leer lassen.',
+            },
             handlungsempfehlung: {
               type: "string",
               description:
@@ -70,9 +75,9 @@ async function chanceRadarDurchfuehren() {
 
 1. Bauprojekte: neue Bürogebäude, Gewerbeparks, Kliniken, Hotels, Logistikzentren, Pflegeheime im Bau oder kurz vor Fertigstellung — die brauchen bald Reinigungsdienstleister. Wenn möglich: wer ist Bauträger/Projektentwickler/Hausverwaltung, gibt es einen namentlich genannten Ansprechpartner (Projektleiter, Geschäftsführer)?
 2. Expansion: Unternehmen, die neue Standorte/Niederlassungen in der Region eröffnen.
-3. Wettbewerb: Hinweise auf Probleme bei Mitbewerbern (schlechte Bewertungen, Insolvenzen, Geschäftsaufgaben, Beschwerden über Reinigungsdienstleister) — mögliche Wechselbereitschaft. Wenn eine Reinigungsfirma insolvent ist oder aufgibt: recherchiere nach Möglichkeit, welche Kunden/Objekte/Standorte sie betreut hat (Referenzen auf der Website, Presseartikel, Handelsregister-Bekanntmachungen) — das sind die Aufträge, die jetzt neu vergeben werden.
+3. Wettbewerb: Hinweise auf Probleme bei Mitbewerbern (schlechte Bewertungen, Insolvenzen, Geschäftsaufgaben, Beschwerden über Reinigungsdienstleister) — mögliche Wechselbereitschaft. Wenn eine Reinigungsfirma insolvent ist oder aufgibt, gehe die Analyse vollständig durch, nicht nur die reine Meldung: (a) welche Kunden/Objekte/Standorte hat sie betreut (Referenzen auf der Website, Presseartikel, Handelsregister-Bekanntmachungen)? (b) wo liegen diese Objekte geografisch? (c) welche anderen Facility-Management-/Reinigungsfirmen sind in genau dieser Region aktiv und könnten die Objekte übernehmen (recherchiere nach wachsenden Wettbewerbern dort)? (d) welche konkrete, zeitkritische Chance ergibt sich daraus für Blitzblank?
 
-Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere aktiv nach einem konkreten nächsten Schritt (wen kontaktieren, welche Kunden/Objekte betroffen sein könnten) statt nur die reine Beobachtung zu melden. Keine Erfindungen — nur was du in der Websuche tatsächlich findest; wenn ein Detail (z. B. Ansprechpartner) nicht auffindbar ist, sag das ehrlich statt zu raten.`,
+Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere aktiv nach einem konkreten nächsten Schritt (wen kontaktieren, welche Kunden/Objekte betroffen sein könnten) statt nur die reine Beobachtung zu melden. Keine Erfindungen — nur was du in der Websuche tatsächlich findest; wenn ein Detail (z. B. Ansprechpartner) nicht auffindbar ist, sag das ehrlich statt zu raten, plausible Einordnungen (z. B. wahrscheinliche Nachfolger) aber klar als Einschätzung kennzeichnen.`,
       },
     ],
   });
@@ -113,6 +118,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
             titel: string;
             signaltyp: "bauprojekt" | "wettbewerb" | "expansion";
             beschreibung: string;
+            tiefenanalyse?: string;
             handlungsempfehlung?: string;
             quelleUrl?: string;
           }[];
@@ -136,6 +142,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
       titel: c.titel,
       signaltyp: c.signaltyp,
       beschreibung: c.beschreibung,
+      tiefenanalyse: c.tiefenanalyse?.trim() || null,
       handlungsempfehlung: c.handlungsempfehlung?.trim() || null,
       quelleUrl: c.quelleUrl || null,
     });

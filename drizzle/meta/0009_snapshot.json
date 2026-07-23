@@ -1,0 +1,851 @@
+{
+  "id": "cc40f1cd-5706-4a7c-a41b-0fba7c9d49b0",
+  "prevId": "8701f4bf-caf2-47a6-aa11-51ccb83fb5ff",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.aktivitaet": {
+      "name": "aktivitaet",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "firma_id": {
+          "name": "firma_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "typ": {
+          "name": "typ",
+          "type": "aktivitaet_typ",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "datum": {
+          "name": "datum",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "beschreibung": {
+          "name": "beschreibung",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "aktivitaet_firma_id_firma_id_fk": {
+          "name": "aktivitaet_firma_id_firma_id_fk",
+          "tableFrom": "aktivitaet",
+          "tableTo": "firma",
+          "columnsFrom": [
+            "firma_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.analyse_erkenntnis": {
+      "name": "analyse_erkenntnis",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ansprechpartner": {
+      "name": "ansprechpartner",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "firma_id": {
+          "name": "firma_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vorname": {
+          "name": "vorname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nachname": {
+          "name": "nachname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anrede": {
+          "name": "anrede",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rolle": {
+          "name": "rolle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "telefon": {
+          "name": "telefon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "letzter_kontakt_am": {
+          "name": "letzter_kontakt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gesperrt_bis": {
+          "name": "gesperrt_bis",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ansprechpartner_firma_id_firma_id_fk": {
+          "name": "ansprechpartner_firma_id_firma_id_fk",
+          "tableFrom": "ansprechpartner",
+          "tableTo": "firma",
+          "columnsFrom": [
+            "firma_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.auftrag": {
+      "name": "auftrag",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "firma_id": {
+          "name": "firma_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "auftrag_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'gewonnen'"
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "auftrag_firma_id_firma_id_fk": {
+          "name": "auftrag_firma_id_firma_id_fk",
+          "tableFrom": "auftrag",
+          "tableTo": "firma",
+          "columnsFrom": [
+            "firma_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.bewertungsanfrage": {
+      "name": "bewertungsanfrage",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "auftrag_id": {
+          "name": "auftrag_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "bewertungsanfrage_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'vorbereitet'"
+        },
+        "gesendet_am": {
+          "name": "gesendet_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bewertungsanfrage_auftrag_id_auftrag_id_fk": {
+          "name": "bewertungsanfrage_auftrag_id_auftrag_id_fk",
+          "tableFrom": "bewertungsanfrage",
+          "tableTo": "auftrag",
+          "columnsFrom": [
+            "auftrag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.chance": {
+      "name": "chance",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "titel": {
+          "name": "titel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signaltyp": {
+          "name": "signaltyp",
+          "type": "signaltyp",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "beschreibung": {
+          "name": "beschreibung",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quelle_url": {
+          "name": "quelle_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "handlungsempfehlung": {
+          "name": "handlungsempfehlung",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tiefenanalyse": {
+          "name": "tiefenanalyse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "chance_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'neu'"
+        },
+        "firma_id": {
+          "name": "firma_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chance_firma_id_firma_id_fk": {
+          "name": "chance_firma_id_firma_id_fk",
+          "tableFrom": "chance",
+          "tableTo": "firma",
+          "columnsFrom": [
+            "firma_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.firma": {
+      "name": "firma",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "typ": {
+          "name": "typ",
+          "type": "firma_typ",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "branche": {
+          "name": "branche",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "herkunft_kanal": {
+          "name": "herkunft_kanal",
+          "type": "herkunft_kanal",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'neu'"
+        },
+        "begruendung": {
+          "name": "begruendung",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notizen": {
+          "name": "notizen",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "aktualisiert_am": {
+          "name": "aktualisiert_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.followup": {
+      "name": "followup",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "firma_id": {
+          "name": "firma_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "faellig_am": {
+          "name": "faellig_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versuch_nr": {
+          "name": "versuch_nr",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "followup_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'offen'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "followup_firma_id_firma_id_fk": {
+          "name": "followup_firma_id_firma_id_fk",
+          "tableFrom": "followup",
+          "tableTo": "firma",
+          "columnsFrom": [
+            "firma_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.google_verbindung": {
+      "name": "google_verbindung",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aktualisiert_am": {
+          "name": "aktualisiert_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.seo_befund": {
+      "name": "seo_befund",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "kategorie": {
+          "name": "kategorie",
+          "type": "seo_kategorie",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "titel": {
+          "name": "titel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "beschreibung": {
+          "name": "beschreibung",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "freigabe_noetig": {
+          "name": "freigabe_noetig",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "seo_befund_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'offen'"
+        },
+        "quelle_url": {
+          "name": "quelle_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.seo_ziel_keyword": {
+      "name": "seo_ziel_keyword",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "keyword": {
+          "name": "keyword",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "erstellt_am": {
+          "name": "erstellt_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "aktuelle_position": {
+          "name": "aktuelle_position",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impressionen": {
+          "name": "impressionen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "klicks": {
+          "name": "klicks",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zuletzt_geprueft_am": {
+          "name": "zuletzt_geprueft_am",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vorlage": {
+      "name": "vorlage",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "typ": {
+          "name": "typ",
+          "type": "firma_typ",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "betreff": {
+          "name": "betreff",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text_mit_platzhaltern": {
+          "name": "text_mit_platzhaltern",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "aktiv": {
+          "name": "aktiv",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.aktivitaet_typ": {
+      "name": "aktivitaet_typ",
+      "schema": "public",
+      "values": [
+        "email_gesendet",
+        "anruf",
+        "angebot_gesendet",
+        "auftrag_gewonnen"
+      ]
+    },
+    "public.auftrag_status": {
+      "name": "auftrag_status",
+      "schema": "public",
+      "values": [
+        "gewonnen",
+        "abgeschlossen"
+      ]
+    },
+    "public.bewertungsanfrage_status": {
+      "name": "bewertungsanfrage_status",
+      "schema": "public",
+      "values": [
+        "vorbereitet",
+        "freigegeben",
+        "gesendet"
+      ]
+    },
+    "public.chance_status": {
+      "name": "chance_status",
+      "schema": "public",
+      "values": [
+        "neu",
+        "in_recherche",
+        "zu_firma_gereift",
+        "verworfen"
+      ]
+    },
+    "public.firma_typ": {
+      "name": "firma_typ",
+      "schema": "public",
+      "values": [
+        "nachunternehmer",
+        "direktkunde"
+      ]
+    },
+    "public.followup_status": {
+      "name": "followup_status",
+      "schema": "public",
+      "values": [
+        "offen",
+        "erledigt",
+        "kein_interesse"
+      ]
+    },
+    "public.herkunft_kanal": {
+      "name": "herkunft_kanal",
+      "schema": "public",
+      "values": [
+        "ausgehend",
+        "eingehend_telefon",
+        "eingehend_email",
+        "eingehend_formular"
+      ]
+    },
+    "public.seo_befund_status": {
+      "name": "seo_befund_status",
+      "schema": "public",
+      "values": [
+        "offen",
+        "freigegeben",
+        "erledigt",
+        "verworfen"
+      ]
+    },
+    "public.seo_kategorie": {
+      "name": "seo_kategorie",
+      "schema": "public",
+      "values": [
+        "technisch",
+        "meta",
+        "content",
+        "backlink",
+        "wettbewerb",
+        "struktur"
+      ]
+    },
+    "public.signaltyp": {
+      "name": "signaltyp",
+      "schema": "public",
+      "values": [
+        "bauprojekt",
+        "wettbewerb",
+        "expansion"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
