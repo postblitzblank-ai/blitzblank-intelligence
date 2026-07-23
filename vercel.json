@@ -3,6 +3,22 @@
     {
       "path": "/api/cron/seo-daily",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/lead-discovery?typ=nachunternehmer",
+      "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/cron/lead-discovery?typ=nachunternehmer",
+      "schedule": "10 12 * * *"
+    },
+    {
+      "path": "/api/cron/lead-discovery?typ=direktkunde",
+      "schedule": "40 5 * * *"
+    },
+    {
+      "path": "/api/cron/lead-discovery?typ=direktkunde",
+      "schedule": "40 12 * * *"
     }
   ]
 }

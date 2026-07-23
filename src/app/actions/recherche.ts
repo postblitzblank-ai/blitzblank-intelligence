@@ -15,9 +15,9 @@ const modulPfad = {
 
 const rechercheAuftrag = {
   direktkunde:
-    "Direktkunden für eine Gebäudereinigungsfirma (Blitzblank Dienstleistung UG) in Berlin, Brandenburg, Potsdam oder Dresden. Gesucht sind Unternehmen mit erkennbarem Reinigungsbedarf: Bürogebäude, Kliniken, Hotels, Pflegeheime, Neubauten, Logistikzentren.",
+    "Direktkunden für eine Gebäudereinigungsfirma (Blitzblank Dienstleistung UG) in Berlin, Brandenburg, Potsdam oder Dresden. Gesucht sind Unternehmen mit erkennbarem Reinigungsbedarf: Bürogebäude, Kliniken, Hotels, Pflegeheime, Neubauten, Logistikzentren. Besonders wertvoll: Firmen, die gerade eine neue Niederlassung/einen neuen Standort in der Region eröffnen, oder ein neues Objekt/Gebäude übernehmen (erkennbar an Presseartikeln, Stellenanzeigen für den neuen Standort, Handelsregister-Neueintragungen).",
   nachunternehmer:
-    "Firmen, die Reinigungsleistungen an Subunternehmer/Nachunternehmer vergeben (Facility-Management-Firmen, große Gebäudedienstleister) im Raum Berlin, Brandenburg, Potsdam oder Dresden — insbesondere solche, die aktuell erkennbar Subunternehmer suchen.",
+    "Firmen, die Reinigungsleistungen an Subunternehmer/Nachunternehmer vergeben (Facility-Management-Firmen, große Gebäudedienstleister) im Raum Berlin, Brandenburg, Potsdam oder Dresden. Suche gezielt nach diesen Signalen: (1) Firmen, die aktuell erkennbar Subunternehmer/Nachunternehmer für die Reinigung suchen (Ausschreibungen, Stellenanzeigen für 'Nachunternehmer gesucht'); (2) Firmen, die gerade eine neue Niederlassung eröffnen oder in die Region expandieren; (3) Firmen, die erkennbar neue Objekte/Gebäude/Verträge übernommen haben und dafür Kapazität brauchen; (4) Firmen mit auffällig vielen, aktuellen Stellenanzeigen für Reinigungskräfte (Hinweis auf Personalmangel/Wachstum, oft ein Vorbote für Subunternehmer-Bedarf); (5) Firmen mit erkennbarem kurzfristigem/dringendem Personalbedarf (Formulierungen wie 'sofort', 'ab sofort', 'dringend gesucht').",
 } as const;
 
 const firmenVorschlagenTool: Anthropic.Tool = {
