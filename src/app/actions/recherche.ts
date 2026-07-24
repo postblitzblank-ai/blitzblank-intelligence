@@ -197,3 +197,84 @@ export async function vorschlagVerwerfen(formData: FormData) {
   revalidatePath("/direktkunden");
   revalidatePath("/nachunternehmer");
 }
+
+const emailFindenTool: Anthropic.Tool = {
+  name: "email_melden",
+  description: "Meldet die gefundene allgemeine Kontakt-E-Mail-Adresse einer Firma.",
+  input_schema: {
+    type: "object",
+    properties: {
+      email: {
+        type: "string",
+        description:
+          "Allgemeine E-Mail-Adresse der Firma (z. B. info@firma.de), NUR wenn tatsächlich auf der Website gefunden. Leer lassen, wenn keine gefunden wurde.",
+      },
+    },
+    required: [],
+  },
+};
+
+/**
+ * Für Firmen, die schon in der Liste stehen, aber (noch) keine E-Mail
+ * haben — z. B. weil ein früherer Recherche-Lauf keine gefunden hat.
+ * Sucht gezielt nach genau dieser einen Firma nach, statt neue Firmen
+ * zu suchen.
+ */
+export async function emailNachtraeglichSuchen(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  if (!firmaId) return;
+
+  const akte = await db.query.firma.findFirst({ where: eq(firma.id, firmaId) });
+  if (!akte || akte.email) return;
+
+  const suchAntwort = await anthropic.messages.create(
+    {
+      model: "claude-sonnet-5",
+      max_tokens: 2048,
+      tools: [
+        { type: "web_search_20250305", name: "web_search", max_uses: 3 },
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 2 },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: `Finde die allgemeine Kontakt-E-Mail-Adresse von "${akte.name}"${
+            akte.region ? ` (${akte.region})` : ""
+          }. Suche zuerst per web_search nach der offiziellen Website und der Kontakt-/Impressum-Seite. Rufe dann per web_fetch AUSSCHLIESSLICH eine URL auf, die tatsächlich als Suchergebnis zurückkam — rate niemals eine URL. Wenn keine E-Mail-Adresse auffindbar ist, sag das ehrlich statt zu raten.`,
+        },
+      ],
+    },
+    { headers: { "anthropic-beta": "web-fetch-2025-09-10" } }
+  );
+
+  const suchText = suchAntwort.content
+    .filter((c): c is Anthropic.TextBlock => c.type === "text")
+    .map((c) => c.text)
+    .join("\n");
+
+  if (!suchText.trim()) return;
+
+  const extraktion = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 512,
+    tool_choice: { type: "tool", name: "email_melden" },
+    tools: [emailFindenTool],
+    messages: [
+      { role: "user", content: `Extrahiere die gefundene E-Mail-Adresse aus:\n\n${suchText}` },
+    ],
+  });
+
+  const toolUse = extraktion.content.find(
+    (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
+  );
+  const email = (toolUse?.input as { email?: string } | undefined)?.email?.trim();
+
+  if (email) {
+    await db.update(firma).set({ email, aktualisiertAm: new Date() }).where(eq(firma.id, firmaId));
+  }
+
+  revalidatePath("/direktkunden");
+  revalidatePath("/nachunternehmer");
+  revalidatePath(`/direktkunden/${firmaId}`);
+  revalidatePath(`/nachunternehmer/${firmaId}`);
+}

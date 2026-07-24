@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AlleSenden } from "@/components/alle-senden";
+import { EmailSuchen } from "@/components/email-suchen";
 
 /**
  * Sammel-Freigabe gemäß Konzept Modul 8: Empfängerliste oben mit Status-Badge,
@@ -75,6 +76,7 @@ export async function Freigabe({
               <ul className="space-y-3">
                 {empfaenger.map((f) => {
                   const p = f.ansprechpartner.find((a) => a.email) ?? null;
+                  const hatEmail = Boolean(p || f.email);
                   return (
                     <li
                       key={f.id}
@@ -90,10 +92,16 @@ export async function Freigabe({
                         <span className="ml-2 text-muted-foreground">
                           {p
                             ? `Sehr geehrte(r) Herr/Frau ${p.nachname} · ${p.email}`
-                            : "Sehr geehrte Damen und Herren · allgemeine Adresse"}
+                            : f.email
+                              ? `Sehr geehrte Damen und Herren · ${f.email}`
+                              : "Keine E-Mail-Adresse bekannt"}
                         </span>
                       </div>
-                      <Badge variant="secondary">Neu</Badge>
+                      {hatEmail ? (
+                        <Badge variant="secondary">Neu</Badge>
+                      ) : (
+                        <EmailSuchen firmaId={f.id} />
+                      )}
                     </li>
                   );
                 })}
