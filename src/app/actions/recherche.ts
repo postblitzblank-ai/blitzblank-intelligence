@@ -73,22 +73,26 @@ export async function firmenRecherche(formData: FormData) {
   const rechercheAntwort = await anthropic.messages.create(
     {
       model: "claude-sonnet-5",
-      max_tokens: 4096,
+      max_tokens: 8192,
       tools: [
-        { type: "web_search_20250305", name: "web_search", max_uses: 4 },
-        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 4 },
+        { type: "web_search_20250305", name: "web_search", max_uses: 6 },
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 6 },
       ],
       messages: [
         {
           role: "user",
           content: `Recherchiere im Web nach: ${rechercheAuftrag[typ]}${
             hinweis ? `\n\nZusätzlicher Hinweis vom Nutzer: ${hinweis}` : ""
-          }\n\nNenne 3-6 konkrete, real existierende Firmen mit Name, Ort und einem kurzen Grund, warum sie ein passender Kontakt sind (z. B. Stellenanzeige, Expansion, öffentlich bekannter Bedarf). Nutze für jede Angabe eine Quelle aus deiner Websuche.\n\nRufe anschließend für jede gefundene Firma kurz die eigene Website auf (Kontakt-/Impressum-Seite) und notiere, falls vorhanden: die allgemeine E-Mail-Adresse (z. B. info@...) und einen namentlich genannten Ansprechpartner samt eindeutiger Anrede (nur wenn "Herr"/"Frau" oder ein eindeutiger Titel wörtlich dabeisteht — sonst nichts dazu schreiben, nicht raten).`,
+          }\n\nNenne 3-6 konkrete, real existierende Firmen mit Name, Ort und einem kurzen Grund, warum sie ein passender Kontakt sind (z. B. Stellenanzeige, Expansion, öffentlich bekannter Bedarf). Nutze für jede Angabe eine Quelle aus deiner Websuche.\n\nRufe anschließend für jede gefundene Firma kurz die eigene Website auf (Kontakt-/Impressum-Seite) und notiere, falls vorhanden: die allgemeine E-Mail-Adresse (z. B. info@...) und einen namentlich genannten Ansprechpartner samt eindeutiger Anrede (nur wenn "Herr"/"Frau" oder ein eindeutiger Titel wörtlich dabeisteht — sonst nichts dazu schreiben, nicht raten).\n\nWICHTIG zu web_fetch: rufe NIEMALS eine geratene URL auf (z. B. "firma.de/kontakt" nur weil das üblich klingt). Suche zuerst gezielt per web_search nach "[Firmenname] Kontakt Impressum" o. Ä. und rufe per web_fetch ausschließlich eine URL auf, die als tatsächliches Suchergebnis zurückkam. Fetche höchstens so viele Firmen-Websites, wie du an web_fetch-Aufrufen zur Verfügung hast — lieber weniger Firmen gründlich prüfen als bei vielen ins Leere laufen.`,
         },
       ],
     },
     { headers: { "anthropic-beta": "web-fetch-2025-09-10" } }
   );
+
+  if (rechercheAntwort.stop_reason === "max_tokens") {
+    throw new Error("Recherche-Antwort wurde abgeschnitten (zu lang). Bitte erneut versuchen.");
+  }
 
   const rechercheText = rechercheAntwort.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
