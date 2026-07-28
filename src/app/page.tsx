@@ -12,7 +12,7 @@ import { AlleSenden } from "@/components/alle-senden";
 import { ChanceZuFirma } from "@/components/chance-zu-firma";
 import { db } from "@/db";
 import { firma, followup, chance, seoBefund } from "@/db/schema";
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import {
   vorschlagUebernehmen,
   vorschlagVerwerfen,
@@ -24,6 +24,15 @@ import {
   seoBefundVerwerfen,
   seoBefundErledigt,
 } from "@/app/actions/seo";
+import { opportunityScore } from "@/lib/opportunity-score";
+import {
+  Sparkles,
+  Mail as MailIcon,
+  PhoneCall,
+  Trophy,
+  Flame,
+  TrendingUp,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -49,15 +58,21 @@ function externeUrl(url: string) {
 }
 
 export default async function Dashboard() {
+  const heuteStart = new Date();
+  heuteStart.setHours(0, 0, 0, 0);
+
   const [
     firmenVorschlaege,
     direktkundenBereit,
     nachunternehmerBereit,
     faelligeListe,
     chancenNeu,
+    chancenHeute,
+    ausschreibungenNeu,
     seoWartetAufFreigabe,
     seoAutonomOffen,
     zielKeywords,
+    aktiveFirmenFuerScore,
   ] = await Promise.all([
     db.query.firma.findMany({
       where: (f, { eq: gleich }) => gleich(f.status, "vorschlag"),
@@ -84,6 +99,14 @@ export default async function Dashboard() {
       orderBy: (c, { desc }) => desc(c.erstelltAm),
       limit: 8,
     }),
+    db
+      .select({ n: chance.id })
+      .from(chance)
+      .where(and(eq(chance.status, "neu"), gte(chance.erstelltAm, heuteStart))),
+    db
+      .select({ n: chance.id })
+      .from(chance)
+      .where(and(eq(chance.status, "neu"), eq(chance.signaltyp, "ausschreibung"))),
     db.query.seoBefund.findMany({
       where: (b, { and: und, eq: gleich }) =>
         und(gleich(b.freigabeNoetig, true), gleich(b.status, "offen")),
@@ -98,7 +121,13 @@ export default async function Dashboard() {
     db.query.seoZielKeyword.findMany({
       orderBy: (k, { asc }) => asc(k.erstelltAm),
     }),
+    db.query.firma.findMany({
+      where: (f, { inArray: drin }) => drin(f.status, ["vorschlag", "neu", "kontaktiert"]),
+      with: { ansprechpartner: true, aktivitaeten: true, followups: true },
+    }),
   ]);
+
+  const heisseLeads = aktiveFirmenFuerScore.filter((f) => opportunityScore(f) >= 70).length;
 
   const alleOffen =
     firmenVorschlaege.length +
@@ -117,9 +146,66 @@ export default async function Dashboard() {
         </p>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        {[
+          {
+            icon: Sparkles,
+            farbe: "text-emerald-600",
+            wert: chancenHeute.length,
+            label: "Neue Chancen heute",
+            href: "#marktchancen",
+          },
+          {
+            icon: MailIcon,
+            farbe: "text-sky-600",
+            wert: direktkundenBereit.length + nachunternehmerBereit.length,
+            label: "E-Mails bereit",
+            href: "#emails",
+          },
+          {
+            icon: PhoneCall,
+            farbe: "text-amber-600",
+            wert: faelligeListe.length,
+            label: "Follow-ups heute",
+            href: "#followups",
+          },
+          {
+            icon: Trophy,
+            farbe: "text-violet-600",
+            wert: ausschreibungenNeu.length,
+            label: "Neue Ausschreibungen",
+            href: "#marktchancen",
+          },
+          {
+            icon: Flame,
+            farbe: "text-red-600",
+            wert: heisseLeads,
+            label: "Heiße Leads",
+            href: "/direktkunden",
+          },
+          {
+            icon: TrendingUp,
+            farbe: "text-slate-600",
+            wert: seoWartetAufFreigabe.length,
+            label: "SEO wartet auf dich",
+            href: "#seo",
+          },
+        ].map((k) => (
+          <Link key={k.label} href={k.href} className="block">
+            <Card className="h-full rounded-2xl transition-shadow hover:shadow-md">
+              <CardContent className="flex flex-col gap-2 py-1">
+                <k.icon className={`size-5 ${k.farbe}`} />
+                <span className="text-2xl font-semibold tabular-nums">{k.wert}</span>
+                <span className="text-xs text-muted-foreground">{k.label}</span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
       {/* E-Mails bereit zum Versenden */}
       {(direktkundenBereit.length > 0 || nachunternehmerBereit.length > 0) && (
-        <section className="space-y-3">
+        <section id="emails" className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">
             E-Mails vorbereitet
           </h2>
@@ -208,7 +294,7 @@ export default async function Dashboard() {
       </section>
 
       {/* Follow-ups, automatisch erinnert */}
-      <section className="space-y-3">
+      <section id="followups" className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           Follow-up fällig ({faelligeListe.length})
         </h2>
@@ -267,7 +353,7 @@ export default async function Dashboard() {
       </section>
 
       {/* Marktchancen, automatisch analysiert */}
-      <section className="space-y-3">
+      <section id="marktchancen" className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           Neue Marktchancen ({chancenNeu.length})
         </h2>
@@ -358,7 +444,7 @@ export default async function Dashboard() {
       )}
 
       {/* SEO: automatisch erledigt, nur zur Kenntnis */}
-      <section className="space-y-3">
+      <section id="seo" className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
           SEO automatisch erledigt ({seoAutonomOffen.length})
         </h2>
