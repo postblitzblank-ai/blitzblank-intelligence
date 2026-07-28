@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, Globe, MapPin } from "lucide-react";
 import { db } from "@/db";
 import {
   Card,
@@ -21,6 +21,11 @@ import {
   notizenSpeichern,
 } from "@/app/actions/firma";
 import { followupAbschliessen, followupPlanen } from "@/app/actions/followup";
+import { opportunityScore, scoreLabel } from "@/lib/opportunity-score";
+
+function externeUrl(url: string) {
+  return /^https?:\/\//.test(url) ? url : `https://${url}`;
+}
 
 const kanalLabel: Record<string, string> = {
   ausgehend: "Ausgehend",
@@ -59,12 +64,26 @@ export async function Firmenakte({
         orderBy: (a, { desc }) => desc(a.erstelltAm),
         with: { bewertungsanfragen: true },
       },
+      chancen: { orderBy: (c, { desc }) => desc(c.erstelltAm) },
     },
   });
 
   if (!akte) notFound();
 
   const laufenderAuftrag = akte.auftraege.find((a) => a.status === "gewonnen");
+  const score = opportunityScore({
+    status: akte.status,
+    email: akte.email,
+    begruendung: akte.begruendung,
+    erstelltAm: akte.erstelltAm,
+    ansprechpartner: akte.ansprechpartner,
+    aktivitaeten: akte.aktivitaeten,
+    followups: akte.followups,
+  });
+  const { label: scoreText, farbe: scoreFarbe } = scoreLabel(score);
+  const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(
+    [akte.name, akte.region].filter(Boolean).join(" ")
+  )}`;
 
   return (
     <div className="space-y-8">
@@ -78,6 +97,9 @@ export async function Firmenakte({
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">{akte.name}</h1>
           <div className="flex items-center gap-2">
+            <Badge variant="outline" className={scoreFarbe}>
+              {scoreText} · {score}
+            </Badge>
             <Badge variant="secondary">{kanalLabel[akte.herkunftKanal]}</Badge>
             <Badge variant="outline">{akte.status}</Badge>
           </div>
@@ -86,6 +108,26 @@ export async function Firmenakte({
           {[akte.branche, akte.region].filter(Boolean).join(" · ") ||
             "Branche und Region noch nicht erfasst"}
         </p>
+        <div className="mt-2 flex flex-wrap gap-3 text-sm">
+          {akte.website && (
+            <a
+              href={externeUrl(akte.website)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+            >
+              <Globe className="size-3.5" /> Webseite
+            </a>
+          )}
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+          >
+            <MapPin className="size-3.5" /> Google Maps
+          </a>
+        </div>
       </div>
 
       {akte.begruendung && (
@@ -95,6 +137,24 @@ export async function Firmenakte({
             <CardDescription>Warum diese Firma: {akte.begruendung}</CardDescription>
           </CardHeader>
         </Card>
+      )}
+
+      {akte.chancen.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Verknüpfte Marktchancen
+          </h2>
+          <Card>
+            <CardContent className="space-y-3">
+              {akte.chancen.map((c) => (
+                <div key={c.id} className="text-sm">
+                  <p className="font-medium">{c.titel}</p>
+                  <p className="text-muted-foreground">{c.beschreibung}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       <section className="space-y-3">
