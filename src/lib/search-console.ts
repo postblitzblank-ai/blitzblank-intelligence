@@ -70,24 +70,16 @@ export async function searchAnalyticsAbfragen(
 }
 
 /**
- * Markenbegriffe, die eine Suchanfrage eindeutig als Marken-Suche
- * kennzeichnen (jemand kennt die Firma bereits), nicht als generische Suche
- * nach einer Dienstleistung. Eine Anfrage wie "blitz blank gebäudereinigung
- * berlin" enthält zwar wörtlich "gebäudereinigung berlin", sagt aber nichts
- * über das generische Ranking aus — wer nur "Gebäudereinigung Berlin" sucht,
- * kennt die Marke noch nicht. Ohne diesen Ausschluss würden Marken-Treffer
- * ein gutes generisches Ranking vortäuschen, das es nicht gibt.
- */
-const MARKENBEGRIFFE = ["blitzblank", "blitz blank", "blitz-blank"];
-
-/**
- * Aggregiertes Ranking für ein Ziel-Keyword: fasst alle echten,
- * NICHT-markengebundenen Suchanfragen zusammen, die das Keyword enthalten
- * (z. B. "gebäudereinigung berlin firma" zählt mit zu "Gebäudereinigung
- * Berlin"), gewichtet die Position nach Impressionen. Gibt null zurück,
- * wenn dafür noch keinerlei echte generische Daten vorliegen — dann lieber
- * "noch keine verlässlichen Rankingdaten" zeigen als eine durch
- * Marken-Suchen verfälschte Zahl.
+ * Exakte, unveränderte Google-Search-Console-Daten für genau diese eine
+ * Suchanfrage (z. B. "gebäudereinigung berlin") — keine Schätzung, keine
+ * Zusammenfassung mehrerer unterschiedlicher Suchanfragen, kein gewichteter
+ * Durchschnitt über verwandte Begriffe. GSC normalisiert Anfragen intern auf
+ * Kleinschreibung, ein einzelner "equals"-Filter liefert den exakten
+ * Treffer für genau dieses Ziel-Keyword.
+ *
+ * Gibt null zurück, wenn Google für diese exakte Anfrage in den letzten
+ * 28 Tagen keine einzige Impression gemessen hat — die Oberfläche zeigt
+ * dann ehrlich "Keine Daten verfügbar" statt einer Schätzung.
  */
 export async function positionFuerKeyword(
   accessToken: string,
@@ -111,33 +103,28 @@ export async function positionFuerKeyword(
             filters: [
               {
                 dimension: "query",
-                operator: "contains",
+                operator: "equals",
                 expression: keyword.toLowerCase(),
               },
-              ...MARKENBEGRIFFE.map((marke) => ({
-                dimension: "query",
-                operator: "notContains",
-                expression: marke,
-              })),
             ],
           },
         ],
-        rowLimit: 25,
+        rowLimit: 1,
       }),
     }
   );
 
-  const zeilen = (daten.rows ?? []) as SearchConsoleZeile[];
-  if (zeilen.length === 0) return null;
+  const zeile = ((daten.rows ?? []) as SearchConsoleZeile[])[0];
+  if (!zeile || zeile.impressions === 0) return null;
 
-  const klicks = zeilen.reduce((s, z) => s + z.clicks, 0);
-  const impressionen = zeilen.reduce((s, z) => s + z.impressions, 0);
-  const position =
-    impressionen > 0
-      ? zeilen.reduce((s, z) => s + z.position * z.impressions, 0) / impressionen
-      : zeilen.reduce((s, z) => s + z.position, 0) / zeilen.length;
-
-  return { klicks, impressionen, position };
+  return {
+    klicks: zeile.clicks,
+    impressionen: zeile.impressions,
+    position: zeile.position,
+    quelle: "Google Search Console" as const,
+    zeitraumStart: startDate,
+    zeitraumEnde: endDate,
+  };
 }
 
 export function letzte28Tage() {

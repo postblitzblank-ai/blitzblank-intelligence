@@ -402,8 +402,15 @@ export default async function Dashboard() {
               <ul className="space-y-2.5">
                 {zielKeywords.map((k) => (
                   <li key={k.id} className="flex items-center justify-between gap-4">
-                    <span className="truncate text-sm font-medium">{k.keyword}</span>
-                    <PositionBadge position={k.aktuellePosition} impressionen={k.impressionen} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{k.keyword}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {k.zuletztGeprueftAm
+                          ? `GSC · ${k.impressionen ?? 0} Impr. · ${k.klicks ?? 0} Klicks`
+                          : "Noch nicht geprüft"}
+                      </p>
+                    </div>
+                    <PositionBadge position={k.aktuellePosition} />
                   </li>
                 ))}
               </ul>

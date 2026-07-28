@@ -14,24 +14,9 @@ const datumFormat = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-const MINDEST_IMPRESSIONEN = 5;
-
-export function PositionBadge({
-  position,
-  impressionen,
-}: {
-  position: number | null;
-  impressionen?: number | null;
-}) {
+export function PositionBadge({ position }: { position: number | null }) {
   if (position == null) {
-    return <Badge variant="outline">Kein Ranking</Badge>;
-  }
-  if (impressionen != null && impressionen < MINDEST_IMPRESSIONEN) {
-    return (
-      <Badge variant="outline" title={`Nur ${impressionen} Impression(en) — zu wenig für eine verlässliche Position`}>
-        Noch keine verlässlichen Daten
-      </Badge>
-    );
+    return <Badge variant="outline">Keine Daten verfügbar</Badge>;
   }
   if (position <= 10) {
     return (
@@ -79,18 +64,20 @@ export async function ZielKeywords() {
               >
                 <div className="min-w-0">
                   <p className="font-medium">{k.keyword}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {k.zuletztGeprueftAm
-                      ? `Geprüft am ${datumFormat.format(k.zuletztGeprueftAm)}${
-                          k.impressionen != null
-                            ? ` · ${k.impressionen} Impr. · ${k.klicks} Klicks (28 Tage)`
-                            : ""
-                        }`
-                      : "Noch nicht geprüft"}
-                  </p>
+                  {k.zuletztGeprueftAm ? (
+                    <p className="text-xs text-muted-foreground">
+                      Quelle: Google Search Console · Aktualisiert am{" "}
+                      {datumFormat.format(k.zuletztGeprueftAm)} ·{" "}
+                      {k.impressionen != null
+                        ? `${k.impressionen} Impressionen · ${k.klicks} Klicks (28 Tage)`
+                        : "keine Daten in diesem Zeitraum"}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Noch nicht geprüft</p>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <PositionBadge position={k.aktuellePosition} impressionen={k.impressionen} />
+                  <PositionBadge position={k.aktuellePosition} />
                   <form action={zielKeywordEntfernen}>
                     <input type="hidden" name="id" value={k.id} />
                     <button
