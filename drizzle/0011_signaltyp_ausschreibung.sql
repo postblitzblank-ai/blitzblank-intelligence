@@ -1,0 +1,1 @@
+ALTER TYPE "public"."signaltyp" ADD VALUE 'ausschreibung';

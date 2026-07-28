@@ -41,6 +41,7 @@ const signaltypLabel: Record<string, string> = {
   bauprojekt: "Bauprojekt",
   wettbewerb: "Wettbewerb",
   expansion: "Expansion",
+  ausschreibung: "Ausschreibung",
 };
 
 function externeUrl(url: string) {

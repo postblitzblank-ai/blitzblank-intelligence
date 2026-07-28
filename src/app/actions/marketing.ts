@@ -23,7 +23,9 @@ const chancenVorschlagenTool: Anthropic.Tool = {
             titel: { type: "string", description: "Kurzer Titel, max. 10 Wörter" },
             signaltyp: {
               type: "string",
-              enum: ["bauprojekt", "wettbewerb", "expansion"],
+              enum: ["bauprojekt", "wettbewerb", "expansion", "ausschreibung"],
+              description:
+                '"ausschreibung" für neu vergebene/gewonnene Reinigungs- oder FM-Aufträge (z. B. "Firma X gewinnt Ausschreibung für Objekt Y") oder laufende, öffentlich bekannte Ausschreibungen.',
             },
             beschreibung: {
               type: "string",
@@ -71,11 +73,12 @@ async function chanceRadarDurchfuehren() {
     messages: [
       {
         role: "user",
-        content: `Du beobachtest den Markt für eine Gebäudereinigungsfirma (Blitzblank Dienstleistung UG) in Berlin, Brandenburg, Potsdam und Dresden. Suche nach aktuellen (möglichst den letzten 1-3 Monaten) Signalen in drei Kategorien:
+        content: `Du beobachtest den Markt für eine Gebäudereinigungsfirma (Blitzblank Dienstleistung UG) in Berlin, Brandenburg, Potsdam und Dresden. Suche nach aktuellen (möglichst den letzten 1-3 Monaten) Signalen in vier Kategorien:
 
 1. Bauprojekte: neue Bürogebäude, Gewerbeparks, Kliniken, Hotels, Logistikzentren, Pflegeheime im Bau oder kurz vor Fertigstellung — die brauchen bald Reinigungsdienstleister. Wenn möglich: wer ist Bauträger/Projektentwickler/Hausverwaltung, gibt es einen namentlich genannten Ansprechpartner (Projektleiter, Geschäftsführer)?
-2. Expansion: Unternehmen, die neue Standorte/Niederlassungen in der Region eröffnen.
+2. Expansion: Unternehmen, die neue Standorte/Niederlassungen in der Region eröffnen, oder auffällig viele aktuelle Stellenanzeigen für Objektleiter/Reinigungspersonal schalten (oft ein Vorbote für neue Aufträge/Kapazitätsbedarf).
 3. Wettbewerb: Hinweise auf Probleme bei Mitbewerbern (schlechte Bewertungen, Insolvenzen, Geschäftsaufgaben, Beschwerden über Reinigungsdienstleister) — mögliche Wechselbereitschaft. Wenn eine Reinigungsfirma insolvent ist oder aufgibt, gehe die Analyse vollständig durch, nicht nur die reine Meldung: (a) welche Kunden/Objekte/Standorte hat sie betreut (Referenzen auf der Website, Presseartikel, Handelsregister-Bekanntmachungen)? (b) wo liegen diese Objekte geografisch? (c) welche anderen Facility-Management-/Reinigungsfirmen sind in genau dieser Region aktiv und könnten die Objekte übernehmen (recherchiere nach wachsenden Wettbewerbern dort)? (d) welche konkrete, zeitkritische Chance ergibt sich daraus für Blitzblank?
+4. Ausschreibungen/Auftragsgewinne: öffentlich bekannte, neu vergebene oder gewonnene Reinigungs-/FM-Ausschreibungen (z. B. Vergabeplattformen, Pressemitteilungen "Firma X übernimmt Reinigung für Objekt Y"), auch wenn ein Wettbewerber gewonnen hat — das zeigt, welche Objekte gerade neu vergeben werden und wer in der Region aktiv mitbietet.
 
 Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere aktiv nach einem konkreten nächsten Schritt (wen kontaktieren, welche Kunden/Objekte betroffen sein könnten) statt nur die reine Beobachtung zu melden. Keine Erfindungen — nur was du in der Websuche tatsächlich findest; wenn ein Detail (z. B. Ansprechpartner) nicht auffindbar ist, sag das ehrlich statt zu raten, plausible Einordnungen (z. B. wahrscheinliche Nachfolger) aber klar als Einschätzung kennzeichnen.`,
       },
@@ -116,7 +119,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
       | {
           chancen?: {
             titel: string;
-            signaltyp: "bauprojekt" | "wettbewerb" | "expansion";
+            signaltyp: "bauprojekt" | "wettbewerb" | "expansion" | "ausschreibung";
             beschreibung: string;
             tiefenanalyse?: string;
             handlungsempfehlung?: string;

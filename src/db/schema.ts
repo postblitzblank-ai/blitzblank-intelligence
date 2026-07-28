@@ -34,6 +34,7 @@ export const signaltypEnum = pgEnum("signaltyp", [
   "bauprojekt",
   "wettbewerb",
   "expansion",
+  "ausschreibung",
 ]);
 export const chanceStatusEnum = pgEnum("chance_status", [
   "neu",
