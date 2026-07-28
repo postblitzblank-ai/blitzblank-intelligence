@@ -14,9 +14,24 @@ const datumFormat = new Intl.DateTimeFormat("de-DE", {
   minute: "2-digit",
 });
 
-export function PositionBadge({ position }: { position: number | null }) {
+const MINDEST_IMPRESSIONEN = 5;
+
+export function PositionBadge({
+  position,
+  impressionen,
+}: {
+  position: number | null;
+  impressionen?: number | null;
+}) {
   if (position == null) {
     return <Badge variant="outline">Kein Ranking</Badge>;
+  }
+  if (impressionen != null && impressionen < MINDEST_IMPRESSIONEN) {
+    return (
+      <Badge variant="outline" title={`Nur ${impressionen} Impression(en) — zu wenig für eine verlässliche Position`}>
+        Noch keine verlässlichen Daten
+      </Badge>
+    );
   }
   if (position <= 10) {
     return (
@@ -75,7 +90,7 @@ export async function ZielKeywords() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <PositionBadge position={k.aktuellePosition} />
+                  <PositionBadge position={k.aktuellePosition} impressionen={k.impressionen} />
                   <form action={zielKeywordEntfernen}>
                     <input type="hidden" name="id" value={k.id} />
                     <button

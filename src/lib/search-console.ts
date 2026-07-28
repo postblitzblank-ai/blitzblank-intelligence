@@ -70,10 +70,24 @@ export async function searchAnalyticsAbfragen(
 }
 
 /**
- * Aggregiertes Ranking für ein Ziel-Keyword: fasst alle echten Suchanfragen
- * zusammen, die das Keyword enthalten (z. B. "gebäudereinigung berlin firma"
- * zählt mit zu "Gebäudereinigung Berlin"), gewichtet die Position nach
- * Impressionen. Gibt null zurück, wenn dafür noch keinerlei Daten vorliegen.
+ * Markenbegriffe, die eine Suchanfrage eindeutig als Marken-Suche
+ * kennzeichnen (jemand kennt die Firma bereits), nicht als generische Suche
+ * nach einer Dienstleistung. Eine Anfrage wie "blitz blank gebäudereinigung
+ * berlin" enthält zwar wörtlich "gebäudereinigung berlin", sagt aber nichts
+ * über das generische Ranking aus — wer nur "Gebäudereinigung Berlin" sucht,
+ * kennt die Marke noch nicht. Ohne diesen Ausschluss würden Marken-Treffer
+ * ein gutes generisches Ranking vortäuschen, das es nicht gibt.
+ */
+const MARKENBEGRIFFE = ["blitzblank", "blitz blank", "blitz-blank"];
+
+/**
+ * Aggregiertes Ranking für ein Ziel-Keyword: fasst alle echten,
+ * NICHT-markengebundenen Suchanfragen zusammen, die das Keyword enthalten
+ * (z. B. "gebäudereinigung berlin firma" zählt mit zu "Gebäudereinigung
+ * Berlin"), gewichtet die Position nach Impressionen. Gibt null zurück,
+ * wenn dafür noch keinerlei echte generische Daten vorliegen — dann lieber
+ * "noch keine verlässlichen Rankingdaten" zeigen als eine durch
+ * Marken-Suchen verfälschte Zahl.
  */
 export async function positionFuerKeyword(
   accessToken: string,
@@ -100,6 +114,11 @@ export async function positionFuerKeyword(
                 operator: "contains",
                 expression: keyword.toLowerCase(),
               },
+              ...MARKENBEGRIFFE.map((marke) => ({
+                dimension: "query",
+                operator: "notContains",
+                expression: marke,
+              })),
             ],
           },
         ],

@@ -403,7 +403,7 @@ export default async function Dashboard() {
                 {zielKeywords.map((k) => (
                   <li key={k.id} className="flex items-center justify-between gap-4">
                     <span className="truncate text-sm font-medium">{k.keyword}</span>
-                    <PositionBadge position={k.aktuellePosition} />
+                    <PositionBadge position={k.aktuellePosition} impressionen={k.impressionen} />
                   </li>
                 ))}
               </ul>
