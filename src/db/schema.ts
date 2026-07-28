@@ -74,10 +74,15 @@ export const firma = pgTable("firma", {
   region: text("region"),
   // Allgemeine Firmenadresse (info@...), falls kein Ansprechpartner bekannt ist
   email: text("email"),
+  website: text("website"),
   herkunftKanal: herkunftKanalEnum("herkunft_kanal").notNull(),
   status: text("status").notNull().default("neu"),
   begruendung: text("begruendung"),
   notizen: text("notizen"),
+  /** Kurzer Klartext-Protokoll der letzten Kontakt-Recherche: welche
+   * Quellen geprüft wurden und was gefunden/nicht gefunden wurde. Für die
+   * Ampel-Anzeige (Versandbereit/Recherche läuft/Kein Kontakt gefunden). */
+  rechercheProtokoll: text("recherche_protokoll"),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
   aktualisiertAm: timestamp("aktualisiert_am").notNull().defaultNow(),
 });

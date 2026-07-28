@@ -45,6 +45,10 @@ const firmenVorschlagenTool: Anthropic.Tool = {
               description:
                 "Allgemeine Firmen-E-Mail (z. B. info@firma.de), NUR wenn tatsächlich auf der Website gefunden. Niemals raten oder erfinden.",
             },
+            website: {
+              type: "string",
+              description: "Offizielle Website-URL der Firma, NUR wenn tatsächlich gefunden.",
+            },
             ansprechpartnerNachname: {
               type: "string",
               description:
@@ -131,6 +135,7 @@ export async function firmenRecherche(formData: FormData) {
         region?: string;
         begruendung: string;
         email?: string;
+        website?: string;
         ansprechpartnerNachname?: string;
         ansprechpartnerAnrede?: "Herr" | "Frau";
       }[]
@@ -156,6 +161,7 @@ export async function firmenRecherche(formData: FormData) {
         branche: kandidat.branche || null,
         region: kandidat.region || null,
         email: kandidat.email || null,
+        website: kandidat.website || null,
         herkunftKanal: "ausgehend",
         status: "vorschlag",
         begruendung: kandidat.begruendung,
@@ -198,49 +204,72 @@ export async function vorschlagVerwerfen(formData: FormData) {
   revalidatePath("/nachunternehmer");
 }
 
-const emailFindenTool: Anthropic.Tool = {
-  name: "email_melden",
-  description: "Meldet die gefundene allgemeine Kontakt-E-Mail-Adresse einer Firma.",
+const kontaktFindenTool: Anthropic.Tool = {
+  name: "kontakt_melden",
+  description: "Meldet die gefundenen Kontaktmöglichkeiten einer Firma.",
   input_schema: {
     type: "object",
     properties: {
       email: {
         type: "string",
+        description: "Allgemeine E-Mail-Adresse (z. B. info@firma.de), NUR wenn tatsächlich gefunden.",
+      },
+      telefon: { type: "string", description: "Allgemeine Telefonnummer, NUR wenn tatsächlich gefunden." },
+      website: { type: "string", description: "Offizielle Website-URL der Firma, NUR wenn tatsächlich gefunden." },
+      ansprechpartnerNachname: {
+        type: "string",
+        description: "Nachname eines konkret genannten Ansprechpartners, NUR wenn explizit auf einer Quelle genannt.",
+      },
+      ansprechpartnerAnrede: { type: "string", enum: ["Herr", "Frau"] },
+      hatKontaktformular: { type: "boolean", description: "Ob die Website ein Kontaktformular hat." },
+      linkedinUrl: { type: "string", description: "URL des LinkedIn-Unternehmensprofils, falls gefunden." },
+      xingUrl: { type: "string", description: "URL des Xing-Unternehmensprofils, falls gefunden." },
+      niederlassungshinweis: {
+        type: "string",
+        description: "Kurzer Hinweis, falls eine lokale Niederlassung/Adresse in der Region gefunden wurde.",
+      },
+      protokoll: {
+        type: "string",
         description:
-          "Allgemeine E-Mail-Adresse der Firma (z. B. info@firma.de), NUR wenn tatsächlich auf der Website gefunden. Leer lassen, wenn keine gefunden wurde.",
+          "2-4 Sätze Klartext-Zusammenfassung: welche Quellen wurden geprüft (Website, Impressum, LinkedIn, Xing, Google Maps) und was wurde jeweils gefunden oder nicht gefunden. Für den Nutzer nachvollziehbar, auch wenn nichts gefunden wurde.",
       },
     },
-    required: [],
+    required: ["protokoll"],
   },
 };
 
 /**
- * Für Firmen, die schon in der Liste stehen, aber (noch) keine E-Mail
- * haben — z. B. weil ein früherer Recherche-Lauf keine gefunden hat.
- * Sucht gezielt nach genau dieser einen Firma nach, statt neue Firmen
- * zu suchen.
+ * Für Firmen, die schon in der Liste stehen, aber (noch) keinen
+ * verwendbaren Kontakt haben — z. B. weil ein früherer Recherche-Lauf
+ * nichts gefunden hat. Sucht gezielt nach genau dieser einen Firma nach
+ * (Website, Impressum, Karriere/Team, Google Maps, LinkedIn, Xing) statt
+ * neue Firmen zu suchen, und protokolliert das Ergebnis nachvollziehbar —
+ * auch ein "nichts gefunden" ist ein dokumentiertes Ergebnis, kein Abbruch.
  */
 export async function emailNachtraeglichSuchen(formData: FormData) {
   const firmaId = formData.get("firmaId") as string;
   if (!firmaId) return;
 
-  const akte = await db.query.firma.findFirst({ where: eq(firma.id, firmaId) });
-  if (!akte || akte.email) return;
+  const akte = await db.query.firma.findFirst({
+    where: eq(firma.id, firmaId),
+    with: { ansprechpartner: true },
+  });
+  if (!akte || akte.email || akte.ansprechpartner.some((a) => a.email)) return;
 
   const suchAntwort = await anthropic.messages.create(
     {
       model: "claude-sonnet-5",
-      max_tokens: 2048,
+      max_tokens: 3072,
       tools: [
-        { type: "web_search_20250305", name: "web_search", max_uses: 3 },
-        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 2 },
+        { type: "web_search_20250305", name: "web_search", max_uses: 4 },
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 3 },
       ],
       messages: [
         {
           role: "user",
-          content: `Finde die allgemeine Kontakt-E-Mail-Adresse von "${akte.name}"${
+          content: `Recherchiere gründlich Kontaktmöglichkeiten für "${akte.name}"${
             akte.region ? ` (${akte.region})` : ""
-          }. Suche zuerst per web_search nach der offiziellen Website und der Kontakt-/Impressum-Seite. Rufe dann per web_fetch AUSSCHLIESSLICH eine URL auf, die tatsächlich als Suchergebnis zurückkam — rate niemals eine URL. Wenn keine E-Mail-Adresse auffindbar ist, sag das ehrlich statt zu raten.`,
+          }. Prüfe der Reihe nach: (1) offizielle Website mit Kontakt-/Impressum-/Karriere-Seite für E-Mail, Telefon, Adresse; (2) ob die Website ein Kontaktformular hat; (3) LinkedIn-Unternehmensprofil; (4) Xing-Unternehmensprofil; (5) Google-Maps-Eintrag für Adresse/Niederlassung in der Region.\n\nSuche zuerst per web_search, rufe dann per web_fetch AUSSCHLIESSLICH URLs auf, die tatsächlich als Suchergebnis zurückkamen — rate niemals eine URL. Fasse am Ende zusammen, was du bei jeder Quelle gefunden oder nicht gefunden hast, auch wenn insgesamt nichts Verwendbares dabei war — das ist ein ehrliches Ergebnis, kein Fehler.`,
         },
       ],
     },
@@ -256,21 +285,57 @@ export async function emailNachtraeglichSuchen(formData: FormData) {
 
   const extraktion = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 512,
-    tool_choice: { type: "tool", name: "email_melden" },
-    tools: [emailFindenTool],
+    max_tokens: 1024,
+    tool_choice: { type: "tool", name: "kontakt_melden" },
+    tools: [kontaktFindenTool],
     messages: [
-      { role: "user", content: `Extrahiere die gefundene E-Mail-Adresse aus:\n\n${suchText}` },
+      { role: "user", content: `Extrahiere die gefundenen Kontaktmöglichkeiten aus:\n\n${suchText}` },
     ],
   });
 
   const toolUse = extraktion.content.find(
     (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
   );
-  const email = (toolUse?.input as { email?: string } | undefined)?.email?.trim();
+  const ergebnis = toolUse?.input as
+    | {
+        email?: string;
+        telefon?: string;
+        website?: string;
+        ansprechpartnerNachname?: string;
+        ansprechpartnerAnrede?: "Herr" | "Frau";
+        hatKontaktformular?: boolean;
+        linkedinUrl?: string;
+        xingUrl?: string;
+        niederlassungshinweis?: string;
+        protokoll?: string;
+      }
+    | undefined;
 
-  if (email) {
-    await db.update(firma).set({ email, aktualisiertAm: new Date() }).where(eq(firma.id, firmaId));
+  if (!ergebnis) return;
+
+  const protokollTeile = [ergebnis.protokoll?.trim()];
+  if (ergebnis.hatKontaktformular) protokollTeile.push("Kontaktformular auf der Website vorhanden.");
+  if (ergebnis.linkedinUrl) protokollTeile.push(`LinkedIn: ${ergebnis.linkedinUrl}`);
+  if (ergebnis.xingUrl) protokollTeile.push(`Xing: ${ergebnis.xingUrl}`);
+  if (ergebnis.niederlassungshinweis) protokollTeile.push(`Niederlassung: ${ergebnis.niederlassungshinweis}`);
+
+  await db
+    .update(firma)
+    .set({
+      email: ergebnis.email?.trim() || undefined,
+      website: ergebnis.website?.trim() || undefined,
+      rechercheProtokoll: protokollTeile.filter(Boolean).join(" "),
+      aktualisiertAm: new Date(),
+    })
+    .where(eq(firma.id, firmaId));
+
+  if (ergebnis.ansprechpartnerNachname || ergebnis.telefon) {
+    await db.insert(ansprechpartner).values({
+      firmaId,
+      nachname: ergebnis.ansprechpartnerNachname || null,
+      anrede: ergebnis.ansprechpartnerAnrede || null,
+      telefon: ergebnis.telefon || null,
+    });
   }
 
   revalidatePath("/direktkunden");

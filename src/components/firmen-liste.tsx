@@ -1,25 +1,14 @@
 import Link from "next/link";
 import { db } from "@/db";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FirmaErfassen } from "@/components/firma-erfassen";
 import { KiRecherche } from "@/components/ki-recherche";
 import { Button } from "@/components/ui/button";
-import { Mail, Sparkles, Phone, User } from "lucide-react";
+import { Mail, Sparkles } from "lucide-react";
 import { vorschlagUebernehmen, vorschlagVerwerfen } from "@/app/actions/recherche";
-
-const kanalLabel: Record<string, string> = {
-  ausgehend: "Ausgehend",
-  eingehend_telefon: "Eingehend · Telefon",
-  eingehend_email: "Eingehend · E-Mail",
-  eingehend_formular: "Eingehend · Formular",
-};
+import { opportunityScore } from "@/lib/opportunity-score";
+import { FirmenKarten, type FirmaKarte } from "@/components/firmen-karten";
 
 const datumFormat = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -54,18 +43,38 @@ export async function FirmenListe({
     where: (f, { eq: gleich }) => gleich(f.typ, typ),
     orderBy: (f, { desc: absteigend }) => absteigend(f.aktualisiertAm),
     with: {
-      ansprechpartner: { limit: 1 },
-      aktivitaeten: { orderBy: (a, { desc: absteigend }) => absteigend(a.datum), limit: 1 },
+      ansprechpartner: true,
+      aktivitaeten: { orderBy: (a, { desc: absteigend }) => absteigend(a.datum) },
       followups: {
         where: (f, { eq: gleich }) => gleich(f.status, "offen"),
         orderBy: (f, { asc }) => asc(f.faelligAm),
-        limit: 1,
       },
     },
   });
 
   const vorschlaege = alle.filter((f) => f.status === "vorschlag");
-  const firmen = alle.filter((f) => f.status !== "vorschlag");
+  const firmenKarten: FirmaKarte[] = alle
+    .filter((f) => f.status !== "vorschlag")
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      branche: f.branche,
+      region: f.region,
+      status: f.status,
+      email: f.email,
+      website: f.website,
+      rechercheProtokoll: f.rechercheProtokoll,
+      score: opportunityScore(f),
+      naechsteAufgabe: naechsteAufgabe(f),
+      ansprechpartner: f.ansprechpartner.map((a) => ({
+        vorname: a.vorname,
+        nachname: a.nachname,
+        rolle: a.rolle,
+        telefon: a.telefon,
+        email: a.email,
+      })),
+    }))
+    .sort((a, b) => b.score - a.score);
 
   return (
     <div className="space-y-8">
@@ -122,7 +131,7 @@ export async function FirmenListe({
         </section>
       )}
 
-      {firmen.length === 0 ? (
+      {firmenKarten.length === 0 ? (
         <Card>
           <CardHeader>
             <CardDescription>
@@ -132,63 +141,7 @@ export async function FirmenListe({
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-2.5">
-          {firmen.map((f) => {
-            const kontakt = f.ansprechpartner[0];
-            const letzterKontakt = f.aktivitaeten[0];
-            return (
-              <Link key={f.id} href={`${basisPfad}/${f.id}`} className="block">
-                <Card className="py-4 transition-colors hover:bg-accent/50">
-                  <CardHeader className="flex-row items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate text-base font-medium">
-                        {f.name}
-                      </CardTitle>
-                      <CardDescription className="mt-0.5 truncate">
-                        {[f.branche, f.region].filter(Boolean).join(" · ") ||
-                          "Keine Details"}
-                      </CardDescription>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        {kontakt && (
-                          <span className="flex items-center gap-1">
-                            <User className="size-3" />
-                            {[kontakt.vorname, kontakt.nachname].filter(Boolean).join(" ")}
-                            {kontakt.rolle ? ` · ${kontakt.rolle}` : ""}
-                          </span>
-                        )}
-                        {kontakt?.telefon && (
-                          <span className="flex items-center gap-1">
-                            <Phone className="size-3" /> {kontakt.telefon}
-                          </span>
-                        )}
-                        {(kontakt?.email || f.email) && (
-                          <span className="flex items-center gap-1">
-                            <Mail className="size-3" /> {kontakt?.email || f.email}
-                          </span>
-                        )}
-                        {letzterKontakt && (
-                          <span>
-                            Letzter Kontakt: {datumFormat.format(letzterKontakt.datum)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1.5 text-xs font-medium text-foreground">
-                        {naechsteAufgabe(f)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant="secondary">{kanalLabel[f.herkunftKanal]}</Badge>
-                      <span
-                        className="size-2 rounded-full bg-emerald-500"
-                        title={f.status}
-                      />
-                    </div>
-                  </CardHeader>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
+        <FirmenKarten firmen={firmenKarten} basisPfad={basisPfad} />
       )}
     </div>
   );

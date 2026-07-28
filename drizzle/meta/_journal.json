@@ -71,6 +71,13 @@
       "when": 1784781467139,
       "tag": "0009_chance_tiefenanalyse",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785265115280,
+      "tag": "0010_firma_website_protokoll",
+      "breakpoints": true
     }
   ]
 }
