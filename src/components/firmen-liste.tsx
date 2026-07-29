@@ -9,6 +9,7 @@ import { Mail, Sparkles } from "lucide-react";
 import { vorschlagUebernehmen, vorschlagVerwerfen } from "@/app/actions/recherche";
 import { opportunityScore } from "@/lib/opportunity-score";
 import { FirmenKarten, type FirmaKarte } from "@/components/firmen-karten";
+import { brancheKategorie } from "@/lib/branche-kategorie";
 
 const datumFormat = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -66,6 +67,7 @@ export async function FirmenListe({
       rechercheProtokoll: f.rechercheProtokoll,
       score: opportunityScore(f),
       naechsteAufgabe: naechsteAufgabe(f),
+      kategorie: brancheKategorie(f.branche, f.name),
       ansprechpartner: f.ansprechpartner.map((a) => ({
         vorname: a.vorname,
         nachname: a.nachname,
@@ -141,7 +143,11 @@ export async function FirmenListe({
           </CardHeader>
         </Card>
       ) : (
-        <FirmenKarten firmen={firmenKarten} basisPfad={basisPfad} />
+        <FirmenKarten
+          firmen={firmenKarten}
+          basisPfad={basisPfad}
+          gruppieren={typ === "direktkunde"}
+        />
       )}
     </div>
   );

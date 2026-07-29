@@ -23,6 +23,7 @@ import {
 import { followupAbschliessen, followupPlanen } from "@/app/actions/followup";
 import { opportunityScore, scoreLabel } from "@/lib/opportunity-score";
 import { EmailEntwurf } from "@/components/email-entwurf";
+import { KiZusammenfassung } from "@/components/ki-zusammenfassung";
 
 function externeUrl(url: string) {
   return /^https?:\/\//.test(url) ? url : `https://${url}`;
@@ -139,6 +140,16 @@ export async function Firmenakte({
           </CardHeader>
         </Card>
       )}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">KI-Einschätzung</h2>
+        <KiZusammenfassung
+          firmaId={akte.id}
+          text={akte.kiZusammenfassungText}
+          empfehlung={akte.kiZusammenfassungEmpfehlung}
+          erstelltAm={akte.kiZusammenfassungAm}
+        />
+      </section>
 
       {akte.emailEntwurfText && akte.status !== "gewonnen" && akte.status !== "kein_interesse" && (
         <section className="space-y-3">

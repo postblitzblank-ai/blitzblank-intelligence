@@ -6,6 +6,7 @@ import { Search, Mail, Phone, Globe, FolderOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmailStatusBadge } from "@/components/email-status-badge";
+import { KATEGORIE_LABEL, KATEGORIE_REIHENFOLGE, type Kategorie } from "@/lib/branche-kategorie";
 
 export type FirmaKarte = {
   id: string;
@@ -18,6 +19,7 @@ export type FirmaKarte = {
   rechercheProtokoll: string | null;
   score: number;
   naechsteAufgabe: string;
+  kategorie: Kategorie;
   ansprechpartner: { vorname: string | null; nachname: string | null; rolle: string | null; telefon: string | null; email: string | null }[];
 };
 
@@ -56,12 +58,93 @@ function externeUrl(url: string) {
   return /^https?:\/\//.test(url) ? url : `https://${url}`;
 }
 
+function FirmaKarteItem({ f, basisPfad }: { f: FirmaKarte; basisPfad: string }) {
+  const kontakt = f.ansprechpartner[0];
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            {initialen(f.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{f.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {[f.branche, f.region].filter(Boolean).join(" · ") || "Keine Details"}
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className={`shrink-0 text-xs ${scoreFarbe(f.score)}`}>
+          {f.score}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge variant="outline" className={`text-xs ${statusFarbe[f.status] ?? ""}`}>
+          {statusLabel[f.status] ?? f.status}
+        </Badge>
+        <EmailStatusBadge
+          hatEmail={Boolean(f.email || kontakt?.email)}
+          protokoll={f.rechercheProtokoll}
+        />
+      </div>
+
+      {kontakt && (kontakt.vorname || kontakt.nachname) && (
+        <p className="text-xs text-muted-foreground">
+          {[kontakt.vorname, kontakt.nachname].filter(Boolean).join(" ")}
+          {kontakt.rolle ? ` · ${kontakt.rolle}` : ""}
+        </p>
+      )}
+
+      <p className="text-xs font-medium">{f.naechsteAufgabe}</p>
+
+      <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
+        <a
+          href={f.email || kontakt?.email ? `mailto:${f.email || kontakt?.email}` : undefined}
+          aria-disabled={!f.email && !kontakt?.email}
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+            f.email || kontakt?.email ? "hover:bg-accent" : "pointer-events-none opacity-40"
+          }`}
+        >
+          <Mail className="size-3" /> E-Mail
+        </a>
+        <a
+          href={kontakt?.telefon ? `tel:${kontakt.telefon}` : undefined}
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+            kontakt?.telefon ? "hover:bg-accent" : "pointer-events-none opacity-40"
+          }`}
+        >
+          <Phone className="size-3" /> Anrufen
+        </a>
+        <a
+          href={f.website ? externeUrl(f.website) : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+            f.website ? "hover:bg-accent" : "pointer-events-none opacity-40"
+          }`}
+        >
+          <Globe className="size-3" /> Webseite
+        </a>
+        <Link
+          href={`${basisPfad}/${f.id}`}
+          className="ml-auto inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:opacity-90"
+        >
+          <FolderOpen className="size-3" /> CRM öffnen
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function FirmenKarten({
   firmen,
   basisPfad,
+  gruppieren = false,
 }: {
   firmen: FirmaKarte[];
   basisPfad: string;
+  gruppieren?: boolean;
 }) {
   const [suche, setSuche] = React.useState("");
 
@@ -77,6 +160,14 @@ export function FirmenKarten({
       return begriffe.every((b) => haystack.includes(b));
     });
   }, [firmen, suche]);
+
+  const gruppen = React.useMemo(() => {
+    if (!gruppieren) return null;
+    return KATEGORIE_REIHENFOLGE.map((kategorie) => ({
+      kategorie,
+      firmen: gefiltert.filter((f) => f.kategorie === kategorie),
+    })).filter((g) => g.firmen.length > 0);
+  }, [gefiltert, gruppieren]);
 
   return (
     <div className="space-y-4">
@@ -94,91 +185,28 @@ export function FirmenKarten({
         <p className="py-8 text-center text-sm text-muted-foreground">
           Keine Firmen gefunden{suche ? ` für „${suche}“` : ""}.
         </p>
+      ) : gruppen ? (
+        <div className="space-y-6">
+          {gruppen.map((g) => (
+            <div key={g.kategorie} className="space-y-3">
+              <h3 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <span>{KATEGORIE_LABEL[g.kategorie].icon}</span>
+                {KATEGORIE_LABEL[g.kategorie].label}
+                <span className="text-xs">({g.firmen.length})</span>
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {g.firmen.map((f) => (
+                  <FirmaKarteItem key={f.id} f={f} basisPfad={basisPfad} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {gefiltert.map((f) => {
-            const kontakt = f.ansprechpartner[0];
-            return (
-              <div
-                key={f.id}
-                className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {initialen(f.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{f.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[f.branche, f.region].filter(Boolean).join(" · ") || "Keine Details"}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={`shrink-0 text-xs ${scoreFarbe(f.score)}`}>
-                    {f.score}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant="outline" className={`text-xs ${statusFarbe[f.status] ?? ""}`}>
-                    {statusLabel[f.status] ?? f.status}
-                  </Badge>
-                  <EmailStatusBadge
-                    hatEmail={Boolean(f.email || kontakt?.email)}
-                    protokoll={f.rechercheProtokoll}
-                  />
-                </div>
-
-                {kontakt && (kontakt.vorname || kontakt.nachname) && (
-                  <p className="text-xs text-muted-foreground">
-                    {[kontakt.vorname, kontakt.nachname].filter(Boolean).join(" ")}
-                    {kontakt.rolle ? ` · ${kontakt.rolle}` : ""}
-                  </p>
-                )}
-
-                <p className="text-xs font-medium">{f.naechsteAufgabe}</p>
-
-                <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
-                  <a
-                    href={f.email || kontakt?.email ? `mailto:${f.email || kontakt?.email}` : undefined}
-                    aria-disabled={!f.email && !kontakt?.email}
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
-                      f.email || kontakt?.email
-                        ? "hover:bg-accent"
-                        : "pointer-events-none opacity-40"
-                    }`}
-                  >
-                    <Mail className="size-3" /> E-Mail
-                  </a>
-                  <a
-                    href={kontakt?.telefon ? `tel:${kontakt.telefon}` : undefined}
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
-                      kontakt?.telefon ? "hover:bg-accent" : "pointer-events-none opacity-40"
-                    }`}
-                  >
-                    <Phone className="size-3" /> Anrufen
-                  </a>
-                  <a
-                    href={f.website ? externeUrl(f.website) : undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
-                      f.website ? "hover:bg-accent" : "pointer-events-none opacity-40"
-                    }`}
-                  >
-                    <Globe className="size-3" /> Webseite
-                  </a>
-                  <Link
-                    href={`${basisPfad}/${f.id}`}
-                    className="ml-auto inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground hover:opacity-90"
-                  >
-                    <FolderOpen className="size-3" /> CRM öffnen
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
+          {gefiltert.map((f) => (
+            <FirmaKarteItem key={f.id} f={f} basisPfad={basisPfad} />
+          ))}
         </div>
       )}
     </div>

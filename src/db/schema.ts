@@ -89,6 +89,13 @@ export const firma = pgTable("firma", {
    * Nutzer muss nur noch pruefen und senden, nicht mehr selbst schreiben. */
   emailEntwurfBetreff: text("email_entwurf_betreff"),
   emailEntwurfText: text("email_entwurf_text"),
+  /** Auf Klick von der KI erstellte, kurze Einschätzung ("warum interessant"
+   * + konkrete Handlungsempfehlung). Wird zwischengespeichert, damit ein
+   * erneuter Seitenaufruf keinen weiteren Anthropic-Aufruf braucht -- nur
+   * "Neu generieren" löst einen neuen Aufruf aus. */
+  kiZusammenfassungText: text("ki_zusammenfassung_text"),
+  kiZusammenfassungEmpfehlung: text("ki_zusammenfassung_empfehlung"),
+  kiZusammenfassungAm: timestamp("ki_zusammenfassung_am"),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
   aktualisiertAm: timestamp("aktualisiert_am").notNull().defaultNow(),
 });
