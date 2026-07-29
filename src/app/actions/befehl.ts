@@ -2,6 +2,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/db";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 const anthropic = new Anthropic();
 
@@ -15,6 +16,14 @@ export async function befehlAusfuehren(formData: FormData) {
   const text = (formData.get("text") as string)?.trim();
   if (!text) throw new Error("Bitte einen Befehl eingeben.");
 
+  return mitFreundlicherFehlerbehandlung(
+    "Command-Bar",
+    () => befehlAusfuehrenDurchfuehren(text),
+    "Der Befehl konnte gerade nicht ausgeführt werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function befehlAusfuehrenDurchfuehren(text: string) {
   const firmen = await db.query.firma.findMany({
     columns: {
       name: true,

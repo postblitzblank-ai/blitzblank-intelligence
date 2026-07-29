@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { firma, aktivitaet, followup, analyseErkenntnis } from "@/db/schema";
 import { sql } from "drizzle-orm";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 const anthropic = new Anthropic();
 
@@ -16,12 +17,11 @@ const MINDEST_FIRMEN = 5;
  * als Rohdaten-Tabelle. Läuft erst ab einer Mindestdatenmenge sinnvoll.
  */
 export async function analyseErstellen() {
-  try {
-    await analyseDurchfuehren();
-  } catch (error) {
-    console.error("Analyse fehlgeschlagen:", error);
-    throw error;
-  }
+  await mitFreundlicherFehlerbehandlung(
+    "Unternehmensanalyse",
+    analyseDurchfuehren,
+    "Die Analyse konnte gerade nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen."
+  );
 }
 
 async function analyseDurchfuehren() {

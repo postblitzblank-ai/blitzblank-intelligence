@@ -13,6 +13,25 @@ export type SearchConsoleZeile = {
 
 export class SearchConsoleFehler extends Error {}
 
+/** Wie bei Gmail: verständliche deutsche Meldung statt roher API-Antwort,
+ * technische Ursache nur im Server-Log. */
+function freundlicheSearchConsoleFehlermeldung(status: number, rohtext: string): string {
+  console.error(`Search Console API Fehler (${status}):`, rohtext.slice(0, 500));
+  if (status === 401) {
+    return "Die Verbindung zu Google Search Console ist abgelaufen. Bitte in den Einstellungen erneut verbinden.";
+  }
+  if (status === 403) {
+    return "Keine Berechtigung für diese Search-Console-Property. Bitte die Google-Verbindung prüfen.";
+  }
+  if (status === 429) {
+    return "Google Search Console hat gerade zu viele Anfragen erhalten. Bitte später erneut versuchen.";
+  }
+  if (status >= 500) {
+    return "Google Search Console ist gerade nicht erreichbar. Bitte später erneut versuchen.";
+  }
+  return "Daten von Google Search Console konnten nicht geladen werden. Bitte später erneut versuchen.";
+}
+
 async function scFetch(url: string, accessToken: string, init?: RequestInit) {
   const res = await fetch(url, {
     ...init,
@@ -24,9 +43,7 @@ async function scFetch(url: string, accessToken: string, init?: RequestInit) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new SearchConsoleFehler(
-      `Search Console API Fehler (${res.status}): ${text.slice(0, 300)}`
-    );
+    throw new SearchConsoleFehler(freundlicheSearchConsoleFehlermeldung(res.status, text));
   }
   return res.json();
 }

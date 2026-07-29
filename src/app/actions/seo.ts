@@ -13,6 +13,7 @@ import {
   verifizierteSiteFinden,
 } from "@/lib/search-console";
 import { hintergrundAccessTokenHolen } from "@/lib/google-token";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 const anthropic = new Anthropic();
 
@@ -131,12 +132,11 @@ const befundVorschlagenTool: Anthropic.Tool = {
  * übertragung läuft laut Konzept separat) — das ist reine Website-Analyse.
  */
 export async function websiteCheckStarten() {
-  try {
-    await websiteCheckDurchfuehren();
-  } catch (error) {
-    console.error("Website-Check fehlgeschlagen:", error);
-    throw error;
-  }
+  await mitFreundlicherFehlerbehandlung(
+    "Website-Check",
+    websiteCheckDurchfuehren,
+    "Der Website-Check konnte gerade nicht durchgeführt werden. Bitte in ein paar Minuten erneut versuchen."
+  );
 }
 
 async function websiteCheckDurchfuehren() {
@@ -230,6 +230,14 @@ export async function zielKeywordEntfernen(formData: FormData) {
  * auf den dauerhaft gespeicherten Google-Zugang.
  */
 export async function zielKeywordsAktualisieren() {
+  await mitFreundlicherFehlerbehandlung(
+    "Ziel-Keywords aktualisieren",
+    zielKeywordsAktualisierenIntern,
+    "Die Rankings konnten gerade nicht aktualisiert werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function zielKeywordsAktualisierenIntern() {
   const accessToken = await googleAccessTokenHolen();
   if (!accessToken) {
     throw new Error("Nicht mit Google verbunden.");
@@ -265,12 +273,11 @@ export async function zielKeywordsAktualisieren() {
  * rankt. Echte Search-Console-Daten dienen dabei als Kontext, wo vorhanden.
  */
 export async function keywordStrategieErstellen() {
-  try {
-    await keywordStrategieDurchfuehren();
-  } catch (error) {
-    console.error("Keyword-Strategie fehlgeschlagen:", error);
-    throw error;
-  }
+  await mitFreundlicherFehlerbehandlung(
+    "Keyword-Strategie",
+    keywordStrategieDurchfuehren,
+    "Die Keyword-Strategie konnte gerade nicht erstellt werden. Bitte in ein paar Minuten erneut versuchen."
+  );
 }
 
 async function keywordStrategieDurchfuehren() {

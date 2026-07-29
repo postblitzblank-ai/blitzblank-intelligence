@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { chance, firma } from "@/db/schema";
 import { eq, ilike } from "drizzle-orm";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 const anthropic = new Anthropic();
 
@@ -57,12 +58,11 @@ const chancenVorschlagenTool: Anthropic.Tool = {
  * bekannt ist. Reift hier, bis die KI eine konkrete Firma daraus macht.
  */
 export async function chanceRadarStarten() {
-  try {
-    await chanceRadarDurchfuehren();
-  } catch (error) {
-    console.error("Chancen-Radar fehlgeschlagen:", error);
-    throw error;
-  }
+  await mitFreundlicherFehlerbehandlung(
+    "Chancen-Radar",
+    chanceRadarDurchfuehren,
+    "Das Chancen-Radar konnte gerade nicht laufen. Bitte in ein paar Minuten erneut versuchen."
+  );
 }
 
 async function chanceRadarDurchfuehren() {

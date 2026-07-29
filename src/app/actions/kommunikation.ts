@@ -7,6 +7,7 @@ import { firma, aktivitaet, followup } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { emailSenden } from "@/lib/gmail";
 import { hintergrundAccessTokenHolen } from "@/lib/google-token";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 async function googleAccessTokenHolen() {
   const session = await auth();
@@ -35,6 +36,14 @@ export async function alleSenden(formData: FormData) {
   const typ = formData.get("typ") as "direktkunde" | "nachunternehmer";
   if (!modulPfad[typ]) throw new Error("Ungültiger Modultyp.");
 
+  return mitFreundlicherFehlerbehandlung(
+    "E-Mail-Versand",
+    () => alleSendenDurchfuehren(typ),
+    "Der E-Mail-Versand konnte gerade nicht durchgeführt werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function alleSendenDurchfuehren(typ: "direktkunde" | "nachunternehmer") {
   const accessToken = await googleAccessTokenHolen();
   if (!accessToken) {
     throw new Error("Nicht mit Google verbunden. Bitte zuerst in den Einstellungen verbinden.");

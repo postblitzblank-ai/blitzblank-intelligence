@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { firma, ansprechpartner } from "@/db/schema";
 import { eq, and, ilike } from "drizzle-orm";
+import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 
 const anthropic = new Anthropic();
 
@@ -74,6 +75,17 @@ export async function firmenRecherche(formData: FormData) {
   const hinweis = (formData.get("hinweis") as string)?.trim();
   if (!modulPfad[typ]) return;
 
+  await mitFreundlicherFehlerbehandlung(
+    "KI-Recherche",
+    () => firmenRechercheDurchfuehren(typ, hinweis),
+    "Die KI-Recherche konnte gerade nicht abgeschlossen werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function firmenRechercheDurchfuehren(
+  typ: "direktkunde" | "nachunternehmer",
+  hinweis: string
+) {
   const rechercheAntwort = await anthropic.messages.create(
     {
       model: "claude-sonnet-5",
@@ -250,6 +262,14 @@ export async function emailNachtraeglichSuchen(formData: FormData) {
   const firmaId = formData.get("firmaId") as string;
   if (!firmaId) return;
 
+  await mitFreundlicherFehlerbehandlung(
+    "Kontakt-Nachrecherche",
+    () => kontaktNachtraeglichSuchenDurchfuehren(firmaId),
+    "Die Kontakt-Recherche konnte gerade nicht abgeschlossen werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function kontaktNachtraeglichSuchenDurchfuehren(firmaId: string) {
   const akte = await db.query.firma.findFirst({
     where: eq(firma.id, firmaId),
     with: { ansprechpartner: true },

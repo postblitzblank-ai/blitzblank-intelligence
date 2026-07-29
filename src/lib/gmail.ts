@@ -6,6 +6,29 @@
 
 export class GmailFehler extends Error {}
 
+/** Übersetzt Gmail/Google-API-Fehlercodes in verständliche deutsche Sätze
+ * statt rohe API-Fehlermeldungen an den Nutzer weiterzureichen. Die
+ * technische Ursache wird zusätzlich geloggt, nie direkt gezeigt. */
+function freundlicheGmailFehlermeldung(status: number, rohtext: string): string {
+  console.error(`Gmail-API-Fehler (${status}):`, rohtext.slice(0, 500));
+  if (status === 401) {
+    return "Die Verbindung zu Google ist abgelaufen. Bitte in den Einstellungen erneut mit Google verbinden.";
+  }
+  if (status === 403) {
+    return "Keine Berechtigung zum Versenden über dieses Gmail-Konto. Bitte die Google-Verbindung in den Einstellungen prüfen.";
+  }
+  if (status === 429) {
+    return "Gmail hat gerade zu viele Anfragen erhalten. Bitte in ein paar Minuten erneut versuchen.";
+  }
+  if (status === 400) {
+    return "Die E-Mail konnte nicht erstellt werden — bitte Empfängeradresse und Inhalt prüfen.";
+  }
+  if (status >= 500) {
+    return "Gmail ist gerade nicht erreichbar. Bitte später erneut versuchen.";
+  }
+  return "E-Mail-Versand ist fehlgeschlagen. Bitte später erneut versuchen.";
+}
+
 function base64UrlEncode(input: string) {
   return Buffer.from(input, "utf-8")
     .toString("base64")
@@ -47,7 +70,7 @@ export async function emailSenden(
 
   if (!res.ok) {
     const fehlertext = await res.text();
-    throw new GmailFehler(`Gmail-Versand fehlgeschlagen (${res.status}): ${fehlertext.slice(0, 300)}`);
+    throw new GmailFehler(freundlicheGmailFehlermeldung(res.status, fehlertext));
   }
 
   return res.json() as Promise<{ id: string; threadId: string }>;
