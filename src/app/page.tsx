@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PositionBadge } from "@/components/ziel-keywords";
 import { AlleSenden } from "@/components/alle-senden";
-import { ChanceZuFirma } from "@/components/chance-zu-firma";
 import { db } from "@/db";
 import { firma, followup, chance, seoBefund, ansprechpartner, aktivitaet, seoZielKeyword } from "@/db/schema";
 import { and, eq, gte, isNotNull, or } from "drizzle-orm";
@@ -35,9 +34,6 @@ import {
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-// "Chance zu Firma" stösst hier dieselbe automatische Kontaktrecherche +
-// E-Mail-Entwurf-Kette an wie im Marketing-Modul -- braucht dasselbe Limit.
-export const maxDuration = 180;
 
 const datumFormat = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -457,6 +453,11 @@ export default async function Dashboard() {
         <h2 className="text-sm font-medium text-muted-foreground">
           Neue Marktchancen ({chancenNeu.length})
         </h2>
+        <p className="text-xs text-muted-foreground">
+          Signale ohne eindeutiges Zielunternehmen. Steht eine konkrete Firma
+          fest, recherchiert die KI automatisch Kontakt und E-Mail-Entwurf —
+          die erscheint dann direkt oben bei „Neue Firmen gefunden".
+        </p>
         {chancenNeu.length === 0 ? (
           <Card>
             <CardHeader>
@@ -492,15 +493,12 @@ export default async function Dashboard() {
                       </a>
                     )}
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <form action={chanceVerwerfen}>
-                      <input type="hidden" name="chanceId" value={c.id} />
-                      <Button type="submit" size="sm" variant="ghost">
-                        Ablehnen
-                      </Button>
-                    </form>
-                    <ChanceZuFirma chanceId={c.id} vorschlagName={c.titel} />
-                  </div>
+                  <form action={chanceVerwerfen} className="shrink-0">
+                    <input type="hidden" name="chanceId" value={c.id} />
+                    <Button type="submit" size="sm" variant="ghost">
+                      Ablehnen
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
             ))}

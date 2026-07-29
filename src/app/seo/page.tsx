@@ -38,7 +38,10 @@ export default async function SeoPage() {
   const wartetAufFreigabe = alle.filter(
     (b) => b.freigabeNoetig && b.status === "offen"
   );
-  const autonom = alle.filter((b) => !b.freigabeNoetig && b.status === "offen");
+  const backlinks = alle.filter((b) => b.kategorie === "backlink" && b.status === "offen");
+  const autonom = alle.filter(
+    (b) => !b.freigabeNoetig && b.kategorie !== "backlink" && b.status === "offen"
+  );
   const erledigt = alle.filter((b) => b.status === "erledigt" || b.status === "freigegeben");
 
   return (
@@ -121,11 +124,13 @@ export default async function SeoPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">
-          Automatisch erledigt — Meldung ({autonom.length})
+          Analysiert, noch nicht umgesetzt ({autonom.length})
         </h2>
         <p className="text-xs text-muted-foreground">
-          Neue Backlinks, Landingpages, Content, Alt-Texte/Meta-Beschreibungen:
-          keine Freigabe nötig, nur zur Kenntnis.
+          Technisch möglich, aber diese App kann noch keinen Code auf der
+          Website selbst ändern — dafür fehlt ihr ein dauerhafter
+          Schreibzugriff auf das Website-Repository. Diese Punkte werden in
+          einer Live-Arbeitssitzung umgesetzt, sobald du das anstößt.
         </p>
         {autonom.length === 0 ? (
           <Card>
@@ -154,6 +159,53 @@ export default async function SeoPage() {
                         className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
                       >
                         Quelle <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                  </div>
+                  <form action={seoBefundErledigt}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <Button type="submit" size="sm" variant="secondary">
+                      Erledigt
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Backlinks & Verzeichniseinträge — nur Empfehlung ({backlinks.length})
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Das bleibt bewusst dein Bereich: externe Konten/Verifizierungen
+          (Google Unternehmensprofil, Branchenverzeichnisse) kann niemand
+          automatisch für dich anlegen.
+        </p>
+        {backlinks.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardDescription>Aktuell keine offenen Empfehlungen.</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <div className="space-y-2.5">
+            {backlinks.map((b) => (
+              <Card key={b.id} className="py-4">
+                <CardContent className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-medium">{b.titel}</p>
+                    <p className="text-sm text-muted-foreground">{b.beschreibung}</p>
+                    {b.quelleUrl && (
+                      <a
+                        href={externeUrl(b.quelleUrl)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                      >
+                        Öffnen <ExternalLink className="size-3" />
                       </a>
                     )}
                   </div>

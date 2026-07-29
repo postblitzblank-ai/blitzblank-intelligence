@@ -1,18 +1,19 @@
+import Link from "next/link";
 import { db } from "@/db";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChanceRadar } from "@/components/chance-radar";
-import { ChanceZuFirma } from "@/components/chance-zu-firma";
 import { chanceVerwerfen } from "@/app/actions/marketing";
 import { ExternalLink, Lightbulb } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-// Chancen-Radar (web_search) dauert regelmässig 20-40s, und wenn eine Chance
-// zu einer Firma reift, laeuft direkt danach die automatische Kontakt-
-// recherche + E-Mail-Entwurf-Erstellung mit -- ohne dieses Limit killt
-// Vercels Standard-Timeout die Server Action vorzeitig.
-export const maxDuration = 180;
+// Chancen-Radar (web_search) dauert regelmässig 20-40s, und für bis zu 3
+// Signale mit eindeutigem Zielunternehmen laeuft direkt im selben Lauf die
+// automatische Kontaktrecherche + E-Mail-Entwurf-Erstellung mit (je ca.
+// 30-60s) -- ohne dieses Limit killt Vercels Standard-Timeout die Server
+// Action vorzeitig.
+export const maxDuration = 280;
 
 const signaltypLabel: Record<string, string> = {
   bauprojekt: "Bauprojekt",
@@ -52,6 +53,12 @@ export default async function MarketingPage() {
         <h2 className="text-sm font-medium text-muted-foreground">
           Offene Signale ({neu.length})
         </h2>
+        <p className="text-xs text-muted-foreground">
+          Ohne eindeutiges Zielunternehmen — nur zur Information. Steht eine
+          konkrete Firma fest, recherchiert die KI automatisch weiter, bis
+          Kontakt und E-Mail-Entwurf fertig sind, und die Firma erscheint
+          direkt bei den Direktkunden zur Freigabe.
+        </p>
         {neu.length === 0 ? (
           <Card>
             <CardHeader>
@@ -96,15 +103,12 @@ export default async function MarketingPage() {
                       </a>
                     )}
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <form action={chanceVerwerfen}>
-                      <input type="hidden" name="chanceId" value={c.id} />
-                      <Button type="submit" size="sm" variant="ghost">
-                        Verwerfen
-                      </Button>
-                    </form>
-                    <ChanceZuFirma chanceId={c.id} vorschlagName={c.titel} />
-                  </div>
+                  <form action={chanceVerwerfen} className="shrink-0">
+                    <input type="hidden" name="chanceId" value={c.id} />
+                    <Button type="submit" size="sm" variant="ghost">
+                      Verwerfen
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
             ))}
@@ -121,7 +125,13 @@ export default async function MarketingPage() {
             {gereift.map((c) => (
               <div key={c.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                {c.titel}
+                {c.firmaId ? (
+                  <Link href={`/direktkunden/${c.firmaId}`} className="hover:underline hover:text-foreground">
+                    {c.titel}
+                  </Link>
+                ) : (
+                  c.titel
+                )}
               </div>
             ))}
           </div>

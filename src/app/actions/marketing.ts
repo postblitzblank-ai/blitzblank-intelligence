@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { chance, firma } from "@/db/schema";
-import { eq, ilike } from "drizzle-orm";
+import { and, eq, ilike } from "drizzle-orm";
 import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
 import { firmaAutomatischVervollstaendigen } from "@/app/actions/recherche";
 
@@ -43,6 +43,11 @@ const chancenVorschlagenTool: Anthropic.Tool = {
               type: "string",
               description:
                 'Ein konkreter, umsetzbarer nächster Schritt für den Nutzer in 1-3 Sätzen. Z.B. bei Insolvenz/Auftragsverlust: "Diese Firma hat vermutlich Aufträge bei [Kundentyp] in [Region] verloren — sprich gezielt Hausverwaltungen/Objekte in diesem Umkreis an, die kürzlich den Reinigungsdienstleister gewechselt haben könnten." Bei Bauprojekt: konkret nennen, wen man ansprechen sollte (Bauträger, Projektentwickler, Hausverwaltung) und wann (z.B. "jetzt vor Fertigstellung kontaktieren, bevor ein Wettbewerber den Zuschlag bekommt"). Wenn kein konkreter Ansprechpartner bekannt ist, das transparent so sagen und stattdessen einen Rechercheweg vorschlagen (z.B. "Bauleiter über die Baustellentafel oder den Bauträger direkt ermitteln").',
+            },
+            firmenname: {
+              type: "string",
+              description:
+                "Name des konkreten Unternehmens, das als Lead recherchiert werden soll (potenzieller Kunde/Auftraggeber) -- NUR wenn ein reales, eindeutig identifizierbares Zielunternehmen feststeht. Bei einer Insolvenz/Geschäftsaufgabe NICHT die insolvente Firma selbst nennen (die braucht keine Reinigung mehr), sondern nur einen konkret genannten Nachfolger/Übernehmer. Bei einem Bauprojekt: der Bauträger, Projektentwickler oder die Hausverwaltung, falls namentlich bekannt. Wenn kein eindeutiges Zielunternehmen feststeht, dieses Feld weglassen statt zu raten.",
             },
             quelleUrl: { type: "string" },
           },
@@ -124,6 +129,7 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
             beschreibung: string;
             tiefenanalyse?: string;
             handlungsempfehlung?: string;
+            firmenname?: string;
             quelleUrl?: string;
           }[];
         }
@@ -134,6 +140,8 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
     throw new Error("Keine konkreten Chancen gefunden. Bitte erneut versuchen.");
   }
 
+  const neueFirmenIds: string[] = [];
+
   for (const c of chancenListe) {
     if (!c.titel?.trim() || !c.signaltyp || !c.beschreibung?.trim()) continue;
 
@@ -142,6 +150,31 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
     });
     if (existiert) continue;
 
+    // Steht ein konkretes Zielunternehmen fest, reift die Chance sofort zu
+    // einer Firma -- kein manueller Zwischenschritt ("Zur Firma machen")
+    // mehr: die KI recherchiert, findet Kontakt und schreibt die E-Mail,
+    // bevor der Nutzer überhaupt etwas zu sehen bekommt (Grundregel 3).
+    let firmaId: string | null = null;
+    if (c.firmenname?.trim()) {
+      const firmaExistiert = await db.query.firma.findFirst({
+        where: and(eq(firma.typ, "direktkunde"), ilike(firma.name, c.firmenname.trim())),
+      });
+      if (!firmaExistiert) {
+        const [neueFirma] = await db
+          .insert(firma)
+          .values({
+            typ: "direktkunde",
+            name: c.firmenname.trim(),
+            herkunftKanal: "ausgehend",
+            status: "vorschlag",
+            begruendung: c.beschreibung,
+          })
+          .returning({ id: firma.id });
+        firmaId = neueFirma.id;
+        neueFirmenIds.push(neueFirma.id);
+      }
+    }
+
     await db.insert(chance).values({
       titel: c.titel,
       signaltyp: c.signaltyp,
@@ -149,57 +182,34 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
       tiefenanalyse: c.tiefenanalyse?.trim() || null,
       handlungsempfehlung: c.handlungsempfehlung?.trim() || null,
       quelleUrl: c.quelleUrl || null,
+      status: firmaId ? "zu_firma_gereift" : "neu",
+      firmaId,
     });
   }
 
   revalidatePath("/marketing");
   revalidatePath("/");
-}
 
-/**
- * Sobald ein Kontakt gefunden ist, wandert das Signal in den
- * Direktkunden-Agenten (Konzept Modul 10) — als Vorschlag, damit der
- * bestehende Übernehmen/Verwerfen-Workflow greift. Danach läuft sofort die
- * automatische Kette weiter (Grundregel 3: Signal -> Recherche -> Kontakt ->
- * E-Mail-Entwurf), damit der Nutzer keinen Zwischenschritt selbst anstoßen
- * muss -- ein Fehler dabei darf die eigentliche Firmen-Anlage nicht
- * verhindern, deshalb separat abgefangen.
- */
-export async function chanceZuFirma(formData: FormData) {
-  const chanceId = formData.get("chanceId") as string;
-  const firmenname = (formData.get("firmenname") as string)?.trim();
-  if (!chanceId || !firmenname) return;
-
-  const c = await db.query.chance.findFirst({ where: eq(chance.id, chanceId) });
-  if (!c) return;
-
-  const [neueFirma] = await db
-    .insert(firma)
-    .values({
-      typ: "direktkunde",
-      name: firmenname,
-      herkunftKanal: "ausgehend",
-      status: "vorschlag",
-      begruendung: c.beschreibung,
-    })
-    .returning({ id: firma.id });
-
-  await db
-    .update(chance)
-    .set({ status: "zu_firma_gereift", firmaId: neueFirma.id })
-    .where(eq(chance.id, chanceId));
-
-  revalidatePath("/marketing");
-  revalidatePath("/direktkunden");
-
-  try {
-    await firmaAutomatischVervollstaendigen(neueFirma.id);
-  } catch (error) {
-    console.error("Automatische Vervollständigung nach Chance-Reifung fehlgeschlagen:", error);
+  // Kontaktrecherche + E-Mail-Entwurf laufen erst NACH dem Einfügen aller
+  // Chancen, damit ein einzelner langsamer/fehlschlagender Aufruf nicht die
+  // übrigen, noch nicht gespeicherten Signale blockiert. Auf 3 Firmen pro
+  // Lauf begrenzt, damit die Laufzeit innerhalb des Serverless-Limits
+  // bleibt -- in der Praxis liefert ein Radar-Lauf selten mehr als 1-3
+  // Signale mit eindeutigem Zielunternehmen. Falls doch mehr entstehen,
+  // bleiben die übrigen als normaler Firmen-Vorschlag stehen und können
+  // über den bestehenden "E-Mail suchen"-Button in der Firmenakte
+  // nachträglich recherchiert werden.
+  for (const firmaId of neueFirmenIds.slice(0, 3)) {
+    try {
+      await firmaAutomatischVervollstaendigen(firmaId);
+    } catch (error) {
+      console.error("Automatische Vervollständigung nach Chance-Reifung fehlgeschlagen:", error);
+    }
   }
 
-  revalidatePath("/direktkunden");
-  revalidatePath(`/direktkunden/${neueFirma.id}`);
+  if (neueFirmenIds.length > 0) {
+    revalidatePath("/direktkunden");
+  }
 }
 
 export async function chanceVerwerfen(formData: FormData) {
