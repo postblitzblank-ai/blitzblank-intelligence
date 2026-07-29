@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { chance, firma } from "@/db/schema";
 import { eq, ilike } from "drizzle-orm";
 import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
+import { firmaAutomatischVervollstaendigen } from "@/app/actions/recherche";
 
 const anthropic = new Anthropic();
 
@@ -158,7 +159,11 @@ Nenne 4-8 konkrete, aktuelle Signale mit Quelle. Für jedes Signal: recherchiere
 /**
  * Sobald ein Kontakt gefunden ist, wandert das Signal in den
  * Direktkunden-Agenten (Konzept Modul 10) — als Vorschlag, damit der
- * bestehende Übernehmen/Verwerfen-Workflow greift.
+ * bestehende Übernehmen/Verwerfen-Workflow greift. Danach läuft sofort die
+ * automatische Kette weiter (Grundregel 3: Signal -> Recherche -> Kontakt ->
+ * E-Mail-Entwurf), damit der Nutzer keinen Zwischenschritt selbst anstoßen
+ * muss -- ein Fehler dabei darf die eigentliche Firmen-Anlage nicht
+ * verhindern, deshalb separat abgefangen.
  */
 export async function chanceZuFirma(formData: FormData) {
   const chanceId = formData.get("chanceId") as string;
@@ -186,6 +191,15 @@ export async function chanceZuFirma(formData: FormData) {
 
   revalidatePath("/marketing");
   revalidatePath("/direktkunden");
+
+  try {
+    await firmaAutomatischVervollstaendigen(neueFirma.id);
+  } catch (error) {
+    console.error("Automatische Vervollständigung nach Chance-Reifung fehlgeschlagen:", error);
+  }
+
+  revalidatePath("/direktkunden");
+  revalidatePath(`/direktkunden/${neueFirma.id}`);
 }
 
 export async function chanceVerwerfen(formData: FormData) {

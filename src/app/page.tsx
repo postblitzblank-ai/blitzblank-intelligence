@@ -11,8 +11,8 @@ import { PositionBadge } from "@/components/ziel-keywords";
 import { AlleSenden } from "@/components/alle-senden";
 import { ChanceZuFirma } from "@/components/chance-zu-firma";
 import { db } from "@/db";
-import { firma, followup, chance, seoBefund } from "@/db/schema";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { firma, followup, chance, seoBefund, ansprechpartner, aktivitaet, seoZielKeyword } from "@/db/schema";
+import { and, eq, gte, isNotNull, or } from "drizzle-orm";
 import {
   vorschlagUebernehmen,
   vorschlagVerwerfen,
@@ -35,6 +35,9 @@ import {
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+// "Chance zu Firma" stösst hier dieselbe automatische Kontaktrecherche +
+// E-Mail-Entwurf-Kette an wie im Marketing-Modul -- braucht dasselbe Limit.
+export const maxDuration = 180;
 
 const datumFormat = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -73,6 +76,15 @@ export default async function Dashboard() {
     seoAutonomOffen,
     zielKeywords,
     aktiveFirmenFuerScore,
+    firmenHeute,
+    ansprechpartnerHeute,
+    telefoneHeute,
+    websitesHeute,
+    emailsErstelltHeute,
+    emailsGesendetHeute,
+    followupsHeute,
+    seoErkanntHeute,
+    rankingsGeprueftHeute,
   ] = await Promise.all([
     db.query.firma.findMany({
       where: (f, { eq: gleich }) => gleich(f.status, "vorschlag"),
@@ -125,9 +137,65 @@ export default async function Dashboard() {
       where: (f, { inArray: drin }) => drin(f.status, ["vorschlag", "neu", "kontaktiert"]),
       with: { ansprechpartner: true, aktivitaeten: true, followups: true },
     }),
+    // "Was hat die KI heute erledigt" -- jede Zahl direkt aus echten
+    // Zeitstempeln, keine Schätzung.
+    db
+      .select({ n: firma.id })
+      .from(firma)
+      .where(gte(firma.erstelltAm, heuteStart)),
+    db
+      .select({ n: ansprechpartner.id })
+      .from(ansprechpartner)
+      .where(gte(ansprechpartner.erstelltAm, heuteStart)),
+    db
+      .select({ n: ansprechpartner.id })
+      .from(ansprechpartner)
+      .where(and(gte(ansprechpartner.erstelltAm, heuteStart), isNotNull(ansprechpartner.telefon))),
+    db
+      .select({ n: firma.id })
+      .from(firma)
+      .where(
+        and(
+          isNotNull(firma.website),
+          or(gte(firma.erstelltAm, heuteStart), gte(firma.aktualisiertAm, heuteStart))
+        )
+      ),
+    db
+      .select({ n: firma.id })
+      .from(firma)
+      .where(gte(firma.emailEntwurfErstelltAm, heuteStart)),
+    db
+      .select({ n: aktivitaet.id })
+      .from(aktivitaet)
+      .where(and(eq(aktivitaet.typ, "email_gesendet"), gte(aktivitaet.datum, heuteStart))),
+    db
+      .select({ n: followup.id })
+      .from(followup)
+      .where(gte(followup.erstelltAm, heuteStart)),
+    db
+      .select({ n: seoBefund.id })
+      .from(seoBefund)
+      .where(and(eq(seoBefund.freigabeNoetig, false), gte(seoBefund.erstelltAm, heuteStart))),
+    db
+      .select({ n: seoZielKeyword.id })
+      .from(seoZielKeyword)
+      .where(gte(seoZielKeyword.zuletztGeprueftAm, heuteStart)),
   ]);
 
   const heisseLeads = aktiveFirmenFuerScore.filter((f) => opportunityScore(f) >= 70).length;
+
+  const heuteErledigt = {
+    firmenRecherchiert: firmenHeute.length,
+    ansprechpartnerGefunden: ansprechpartnerHeute.length,
+    telefoneGefunden: telefoneHeute.length,
+    websitesBekannt: websitesHeute.length,
+    emailsErstellt: emailsErstelltHeute.length,
+    emailsGesendet: emailsGesendetHeute.length,
+    followupsGeplant: followupsHeute.length,
+    seoBefundeErkannt: seoErkanntHeute.length,
+    rankingsGeprueft: rankingsGeprueftHeute.length,
+  };
+  const gesamtErledigt = Object.values(heuteErledigt).reduce((a, b) => a + b, 0);
 
   const alleOffen =
     firmenVorschlaege.length +
@@ -145,6 +213,38 @@ export default async function Dashboard() {
             : `${alleOffen} Entscheidung${alleOffen === 1 ? "" : "en"} warten auf dich.`}
         </p>
       </div>
+
+      <section className="rounded-2xl border bg-card p-5">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          <Sparkles className="size-4" /> Was die KI heute erledigt hat
+        </h2>
+        {gesamtErledigt === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Heute noch nichts abgeschlossen — die automatischen Läufe starten im Laufe des Tages.
+          </p>
+        ) : (
+          <ul className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              [heuteErledigt.firmenRecherchiert, "Unternehmen recherchiert"],
+              [heuteErledigt.ansprechpartnerGefunden, "Ansprechpartner gefunden"],
+              [heuteErledigt.telefoneGefunden, "Telefonnummern gefunden"],
+              [heuteErledigt.websitesBekannt, "Webseiten bekannt/geprüft"],
+              [heuteErledigt.emailsErstellt, "E-Mail-Entwürfe erstellt"],
+              [heuteErledigt.emailsGesendet, "E-Mails gesendet"],
+              [heuteErledigt.followupsGeplant, "Follow-ups geplant"],
+              [heuteErledigt.seoBefundeErkannt, "autonome SEO-Befunde erkannt"],
+              [heuteErledigt.rankingsGeprueft, "Keyword-Rankings geprüft"],
+            ]
+              .filter(([wert]) => (wert as number) > 0)
+              .map(([wert, label]) => (
+                <li key={label as string} className="flex items-baseline gap-2">
+                  <span className="tabular-nums font-semibold">{wert}</span>
+                  <span className="text-muted-foreground">{label}</span>
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {[

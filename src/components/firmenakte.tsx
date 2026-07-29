@@ -147,6 +147,7 @@ export async function Firmenakte({
           firmaId={akte.id}
           text={akte.kiZusammenfassungText}
           empfehlung={akte.kiZusammenfassungEmpfehlung}
+          naechsteAktion={akte.kiZusammenfassungNaechsteAktion}
           erstelltAm={akte.kiZusammenfassungAm}
         />
       </section>

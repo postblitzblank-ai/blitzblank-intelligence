@@ -8,9 +8,11 @@ import { chanceVerwerfen } from "@/app/actions/marketing";
 import { ExternalLink, Lightbulb } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-// Chancen-Radar (web_search) dauert regelmässig 20-40s -- ohne dieses Limit
-// killt Vercels Standard-Timeout die Server Action vorzeitig.
-export const maxDuration = 120;
+// Chancen-Radar (web_search) dauert regelmässig 20-40s, und wenn eine Chance
+// zu einer Firma reift, laeuft direkt danach die automatische Kontakt-
+// recherche + E-Mail-Entwurf-Erstellung mit -- ohne dieses Limit killt
+// Vercels Standard-Timeout die Server Action vorzeitig.
+export const maxDuration = 180;
 
 const signaltypLabel: Record<string, string> = {
   bauprojekt: "Bauprojekt",

@@ -30,8 +30,14 @@ const zusammenfassungTool: Anthropic.Tool = {
         description:
           "Eine sehr kurze, direkte Handlungsempfehlung auf Deutsch, z. B. 'Heute anrufen. Nicht warten.' oder 'Erst Follow-up in 2 Wochen, noch zu früh.'",
       },
+      naechste_aktion: {
+        type: "string",
+        enum: ["anrufen", "email", "warten"],
+        description:
+          "Genau eine von drei konkreten nächsten Aktionen: 'anrufen' (jetzt zum Hörer greifen), 'email' (jetzt E-Mail senden/Entwurf prüfen), 'warten' (aktuell noch zu früh oder Follow-up erst später sinnvoll).",
+      },
     },
-    required: ["warum_interessant", "empfehlung"],
+    required: ["warum_interessant", "empfehlung", "naechste_aktion"],
   },
 };
 
@@ -117,14 +123,23 @@ async function zusammenfassungErstellenDurchfuehren(firmaId: string) {
     (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
   );
   const eingabe = toolUse?.input as
-    | { warum_interessant?: string; empfehlung?: string }
+    | {
+        warum_interessant?: string;
+        empfehlung?: string;
+        naechste_aktion?: "anrufen" | "email" | "warten";
+      }
     | undefined;
-  if (!eingabe?.warum_interessant?.trim() || !eingabe?.empfehlung?.trim()) {
+  if (
+    !eingabe?.warum_interessant?.trim() ||
+    !eingabe?.empfehlung?.trim() ||
+    !eingabe?.naechste_aktion
+  ) {
     throw new Error("Die KI konnte keine Einschätzung erstellen. Bitte erneut versuchen.");
   }
 
   const warumInteressant = eingabe.warum_interessant.trim();
   const empfehlung = eingabe.empfehlung.trim();
+  const naechsteAktion = eingabe.naechste_aktion;
   const erstelltAm = new Date();
 
   await db
@@ -132,6 +147,7 @@ async function zusammenfassungErstellenDurchfuehren(firmaId: string) {
     .set({
       kiZusammenfassungText: warumInteressant,
       kiZusammenfassungEmpfehlung: empfehlung,
+      kiZusammenfassungNaechsteAktion: naechsteAktion,
       kiZusammenfassungAm: erstelltAm,
     })
     .where(eq(firma.id, firmaId));
@@ -139,5 +155,5 @@ async function zusammenfassungErstellenDurchfuehren(firmaId: string) {
   revalidatePath(modulPfad[f.typ]);
   revalidatePath(`${modulPfad[f.typ]}/${f.id}`);
 
-  return { warumInteressant, empfehlung, erstelltAm };
+  return { warumInteressant, empfehlung, naechsteAktion, erstelltAm };
 }

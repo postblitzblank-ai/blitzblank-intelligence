@@ -62,6 +62,11 @@ export const seoBefundStatusEnum = pgEnum("seo_befund_status", [
   "erledigt",
   "verworfen",
 ]);
+export const naechsteAktionEnum = pgEnum("naechste_aktion", [
+  "anrufen",
+  "email",
+  "warten",
+]);
 
 /**
  * FIRMA ist eine einzige Tabelle für Nachunternehmer und Direktkunden,
@@ -89,12 +94,17 @@ export const firma = pgTable("firma", {
    * Nutzer muss nur noch pruefen und senden, nicht mehr selbst schreiben. */
   emailEntwurfBetreff: text("email_entwurf_betreff"),
   emailEntwurfText: text("email_entwurf_text"),
+  /** Wann der aktuelle Entwurf geschrieben wurde -- getrennt von
+   * aktualisiertAm, damit das Dashboard "heute erstellte E-Mails" ehrlich
+   * zählen kann, ohne mit anderen Feldänderungen zu vermischen. */
+  emailEntwurfErstelltAm: timestamp("email_entwurf_erstellt_am"),
   /** Auf Klick von der KI erstellte, kurze Einschätzung ("warum interessant"
    * + konkrete Handlungsempfehlung). Wird zwischengespeichert, damit ein
    * erneuter Seitenaufruf keinen weiteren Anthropic-Aufruf braucht -- nur
    * "Neu generieren" löst einen neuen Aufruf aus. */
   kiZusammenfassungText: text("ki_zusammenfassung_text"),
   kiZusammenfassungEmpfehlung: text("ki_zusammenfassung_empfehlung"),
+  kiZusammenfassungNaechsteAktion: naechsteAktionEnum("ki_zusammenfassung_naechste_aktion"),
   kiZusammenfassungAm: timestamp("ki_zusammenfassung_am"),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
   aktualisiertAm: timestamp("aktualisiert_am").notNull().defaultNow(),
@@ -116,6 +126,7 @@ export const ansprechpartner = pgTable("ansprechpartner", {
   letzterKontaktAm: timestamp("letzter_kontakt_am"),
   // nur bei Direktkunden relevant (Kontaktsperre nach Angebotsversand)
   gesperrtBis: timestamp("gesperrt_bis"),
+  erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 
 export const aktivitaet = pgTable("aktivitaet", {
@@ -137,6 +148,7 @@ export const followup = pgTable("followup", {
   // nur Direktkunden zählen bis 3, Nachunternehmer zählen nie (bleibt null)
   versuchNr: integer("versuch_nr"),
   status: followupStatusEnum("status").notNull().default("offen"),
+  erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 
 export const vorlage = pgTable("vorlage", {

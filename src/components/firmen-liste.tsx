@@ -68,6 +68,8 @@ export async function FirmenListe({
       score: opportunityScore(f),
       naechsteAufgabe: naechsteAufgabe(f),
       kategorie: brancheKategorie(f.branche, f.name),
+      kiEmpfehlung: f.kiZusammenfassungEmpfehlung,
+      kiNaechsteAktion: f.kiZusammenfassungNaechsteAktion,
       ansprechpartner: f.ansprechpartner.map((a) => ({
         vorname: a.vorname,
         nachname: a.nachname,

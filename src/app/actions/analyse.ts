@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { firma, aktivitaet, followup, analyseErkenntnis } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
+import { brancheKategorie, KATEGORIE_LABEL } from "@/lib/branche-kategorie";
 
 const anthropic = new Anthropic();
 
@@ -43,6 +44,29 @@ async function analyseDurchfuehren() {
     .where(sql`${firma.branche} is not null`)
     .groupBy(firma.branche);
 
+  const alleFirmen = await db
+    .select({ name: firma.name, branche: firma.branche, status: firma.status })
+    .from(firma);
+
+  const nachKategorie = new Map<string, { anzahl: number; kontaktiert: number; gewonnen: number }>();
+  for (const f of alleFirmen) {
+    const kategorie = KATEGORIE_LABEL[brancheKategorie(f.branche, f.name)].label;
+    const eintrag = nachKategorie.get(kategorie) ?? { anzahl: 0, kontaktiert: 0, gewonnen: 0 };
+    eintrag.anzahl++;
+    if (f.status !== "neu" && f.status !== "vorschlag") eintrag.kontaktiert++;
+    if (f.status === "gewonnen") eintrag.gewonnen++;
+    nachKategorie.set(kategorie, eintrag);
+  }
+  // Nur Kategorien mit genug Datenpunkten fließen in den Vergleich ein --
+  // sonst verzerrt eine einzelne Firma die Aussage ("100% Antwortquote").
+  const kategorieText = [...nachKategorie.entries()]
+    .filter(([, v]) => v.anzahl >= 3)
+    .map(
+      ([kategorie, v]) =>
+        `- ${kategorie}: ${v.anzahl} Firmen, ${v.kontaktiert} kontaktiert (${Math.round((v.kontaktiert / v.anzahl) * 100)}% Kontaktquote), ${v.gewonnen} gewonnen`
+    )
+    .join("\n");
+
   const nachRegion = await db
     .select({
       region: firma.region,
@@ -66,7 +90,9 @@ async function analyseDurchfuehren() {
     .from(aktivitaet)
     .groupBy(aktivitaet.typ);
 
-  const datenText = `Firmen nach Branche:\n${nachBranche
+  const datenText = `Firmen nach Branchen-Kategorie (nur Kategorien mit mindestens 3 Firmen, Kontaktquote = Anteil, der bereits kontaktiert/weiter ist):\n${kategorieText || "Noch keine Kategorie mit ausreichend Datenpunkten."}
+
+Firmen nach roher Branchenbezeichnung:\n${nachBranche
     .map((b) => `- ${b.branche}: ${b.anzahl} Firmen, ${b.kontaktiert} kontaktiert, ${b.gewonnen} gewonnen`)
     .join("\n")}
 
@@ -84,7 +110,7 @@ Aktivitäten:\n${aktivitaetenNachTyp.map((a) => `- ${a.typ}: ${a.anzahl}`).join(
     messages: [
       {
         role: "user",
-        content: `Du analysierst die Akquise-Daten einer Gebäudereinigungsfirma. Hier die aktuellen Zahlen:\n\n${datenText}\n\nFormuliere 3-5 knappe, konkrete Erkenntnisse als einzelne Sätze (keine Tabelle, kein Fließtext-Absatz) — im Stil von: "Hotels reagieren aktuell besser als der Durchschnitt." oder "Brandenburg bringt aktuell mehr Antworten als Berlin." Nur Aussagen, die durch die Zahlen oben tatsächlich gedeckt sind — bei zu wenig Datenpunkten für eine Branche/Region das lieber weglassen als spekulieren. Eine Erkenntnis pro Zeile, keine Nummerierung, keine Einleitung.`,
+        content: `Du analysierst die Akquise-Daten einer Gebäudereinigungsfirma. Hier die aktuellen Zahlen:\n\n${datenText}\n\nFormuliere 3-5 knappe, konkrete Erkenntnisse als einzelne Sätze (keine Tabelle, kein Fließtext-Absatz) — im Stil von: "Hotels reagieren aktuell besser als der Durchschnitt." oder "Brandenburg bringt aktuell mehr Antworten als Berlin." Nutze bevorzugt die Branchen-Kategorie-Vergleichsdaten (sauber gruppiert, mit Kontaktquote), da rohe Brancheneinträge zu uneinheitlich für einen fairen Vergleich sind. Nur Aussagen, die durch die Zahlen oben tatsächlich gedeckt sind — bei zu wenig Datenpunkten für eine Kategorie/Region das lieber weglassen als spekulieren. Eine Erkenntnis pro Zeile, keine Nummerierung, keine Einleitung.`,
       },
     ],
   });

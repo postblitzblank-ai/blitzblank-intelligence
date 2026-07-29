@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, Mail, Phone, Globe, FolderOpen } from "lucide-react";
+import { Search, Mail, Phone, Globe, FolderOpen, PhoneCall, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmailStatusBadge } from "@/components/email-status-badge";
@@ -20,7 +20,30 @@ export type FirmaKarte = {
   score: number;
   naechsteAufgabe: string;
   kategorie: Kategorie;
+  kiEmpfehlung: string | null;
+  kiNaechsteAktion: "anrufen" | "email" | "warten" | null;
   ansprechpartner: { vorname: string | null; nachname: string | null; rolle: string | null; telefon: string | null; email: string | null }[];
+};
+
+const aktionAnzeige: Record<
+  "anrufen" | "email" | "warten",
+  { label: string; icon: typeof PhoneCall; farbe: string }
+> = {
+  anrufen: {
+    label: "Heute anrufen",
+    icon: PhoneCall,
+    farbe: "bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400",
+  },
+  email: {
+    label: "E-Mail senden",
+    icon: Mail,
+    farbe: "bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400",
+  },
+  warten: {
+    label: "Noch warten",
+    icon: Clock,
+    farbe: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  },
 };
 
 const statusLabel: Record<string, string> = {
@@ -96,7 +119,20 @@ function FirmaKarteItem({ f, basisPfad }: { f: FirmaKarte; basisPfad: string }) 
         </p>
       )}
 
-      <p className="text-xs font-medium">{f.naechsteAufgabe}</p>
+      {f.kiNaechsteAktion ? (
+        <div className="space-y-1">
+          <Badge
+            variant="outline"
+            className={`gap-1 text-xs ${aktionAnzeige[f.kiNaechsteAktion].farbe}`}
+          >
+            {React.createElement(aktionAnzeige[f.kiNaechsteAktion].icon, { className: "size-3" })}
+            {aktionAnzeige[f.kiNaechsteAktion].label}
+          </Badge>
+          {f.kiEmpfehlung && <p className="text-xs text-muted-foreground">{f.kiEmpfehlung}</p>}
+        </div>
+      ) : (
+        <p className="text-xs font-medium">{f.naechsteAufgabe}</p>
+      )}
 
       <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
         <a

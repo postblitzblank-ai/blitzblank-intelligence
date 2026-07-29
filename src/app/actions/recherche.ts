@@ -281,7 +281,11 @@ async function emailEntwuerfeErstellen(
 
       await db
         .update(firma)
-        .set({ emailEntwurfBetreff: e.betreff, emailEntwurfText: e.text })
+        .set({
+          emailEntwurfBetreff: e.betreff,
+          emailEntwurfText: e.text,
+          emailEntwurfErstelltAm: new Date(),
+        })
         .where(eq(firma.id, firmaEintrag.id));
     }
   } catch (error) {
@@ -460,4 +464,28 @@ async function kontaktNachtraeglichSuchenDurchfuehren(firmaId: string) {
   revalidatePath("/nachunternehmer");
   revalidatePath(`/direktkunden/${firmaId}`);
   revalidatePath(`/nachunternehmer/${firmaId}`);
+}
+
+/**
+ * Vollautomatische Kette für eine einzelne, gerade erst angelegte Firma
+ * (z. B. wenn eine Marktchance zu einer Firma reift): Kontakt recherchieren
+ * -> falls ein Kontakt gefunden wurde, sofort einen personalisierten
+ * E-Mail-Entwurf schreiben. Kein Zwischenschritt, keine Rückfrage -- der
+ * Nutzer sieht danach nur noch den fertigen Entwurf zur Freigabe.
+ */
+export async function firmaAutomatischVervollstaendigen(firmaId: string) {
+  await kontaktNachtraeglichSuchenDurchfuehren(firmaId);
+
+  const akte = await db.query.firma.findFirst({
+    where: eq(firma.id, firmaId),
+    with: { ansprechpartner: true },
+  });
+  if (!akte) return;
+
+  const hatKontakt = Boolean(akte.email || akte.ansprechpartner.some((a) => a.email));
+  if (!hatKontakt || !akte.begruendung) return;
+
+  await emailEntwuerfeErstellen(akte.typ, [
+    { id: akte.id, name: akte.name, begruendung: akte.begruendung },
+  ]);
 }
