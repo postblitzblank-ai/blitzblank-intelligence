@@ -157,6 +157,8 @@ async function firmenRechercheDurchfuehren(
     throw new Error("Keine konkreten Firmen gefunden. Bitte erneut versuchen.");
   }
 
+  const neueFirmen: { id: string; name: string; begruendung: string }[] = [];
+
   for (const kandidat of firmenListe) {
     if (!kandidat.name?.trim() || !kandidat.begruendung?.trim()) continue;
 
@@ -188,9 +190,105 @@ async function firmenRechercheDurchfuehren(
         email: kandidat.email || null,
       });
     }
+
+    neueFirmen.push({ id: neu.id, name: kandidat.name, begruendung: kandidat.begruendung });
+  }
+
+  if (neueFirmen.length > 0) {
+    await emailEntwuerfeErstellen(typ, neueFirmen);
   }
 
   revalidatePath(modulPfad[typ]);
+}
+
+const emailEntwuerfeTool: Anthropic.Tool = {
+  name: "entwuerfe_melden",
+  description: "Meldet personalisierte E-Mail-Entwürfe für eine Liste von Firmen.",
+  input_schema: {
+    type: "object",
+    properties: {
+      entwuerfe: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Firmenname, muss exakt zur Eingabeliste passen." },
+            betreff: { type: "string" },
+            text: {
+              type: "string",
+              description:
+                'Personalisierter E-Mail-Text auf Deutsch, beginnend mit "{{anrede}}" als Platzhalter für die Anrede (wird später ersetzt). Muss im ersten Absatz konkret auf den genannten Grund/Signal für diese Firma eingehen, danach im Ton/Stil der Referenzvorlage weiterschreiben (Kurzvorstellung Blitzblank, Leistungsspektrum, Abschluss). Nicht zu lang, professionell, keine Übertreibung.',
+            },
+          },
+          required: ["name", "betreff", "text"],
+        },
+      },
+    },
+    required: ["entwuerfe"],
+  },
+};
+
+/**
+ * Schreibt fuer jede neu gefundene Firma automatisch einen personalisierten
+ * E-Mail-Entwurf (ein Claude-Aufruf fuer alle Firmen zusammen, damit die
+ * Gesamtlaufzeit der Recherche nicht mit der Anzahl gefundener Firmen
+ * waechst). Der Nutzer muss den Entwurf nur noch pruefen und senden.
+ */
+async function emailEntwuerfeErstellen(
+  typ: "direktkunde" | "nachunternehmer",
+  neueFirmen: { id: string; name: string; begruendung: string }[]
+) {
+  const vorlage = await db.query.vorlage.findFirst({
+    where: (v, { and: und, eq: gleich }) => und(gleich(v.typ, typ), gleich(v.aktiv, true)),
+  });
+  if (!vorlage) return;
+
+  const firmenListe = neueFirmen
+    .map((f, i) => `${i + 1}. ${f.name} — Grund: ${f.begruendung}`)
+    .join("\n");
+
+  try {
+    const antwort = await anthropic.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 4096,
+      tool_choice: { type: "tool", name: "entwuerfe_melden" },
+      tools: [emailEntwuerfeTool],
+      messages: [
+        {
+          role: "user",
+          content: `Referenzvorlage (Ton/Stil/Leistungsspektrum, so weiterschreiben):\n\nBetreff: ${vorlage.betreff}\n\n${vorlage.textMitPlatzhaltern}\n\n---\n\nSchreibe für jede der folgenden neu gefundenen Firmen einen individuellen, personalisierten E-Mail-Entwurf, der im ersten Satz/Absatz konkret auf den genannten Grund eingeht (nicht die Referenzvorlage wortgleich kopieren):\n\n${firmenListe}`,
+        },
+      ],
+    });
+
+    if (antwort.stop_reason === "max_tokens") return;
+
+    const toolUse = antwort.content.find(
+      (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
+    );
+    const entwuerfe = (
+      toolUse?.input as
+        | { entwuerfe?: { name: string; betreff: string; text: string }[] }
+        | undefined
+    )?.entwuerfe;
+    if (!entwuerfe?.length) return;
+
+    for (const e of entwuerfe) {
+      const firmaEintrag = neueFirmen.find(
+        (f) => f.name.toLowerCase() === e.name?.toLowerCase()
+      );
+      if (!firmaEintrag || !e.betreff?.trim() || !e.text?.trim()) continue;
+
+      await db
+        .update(firma)
+        .set({ emailEntwurfBetreff: e.betreff, emailEntwurfText: e.text })
+        .where(eq(firma.id, firmaEintrag.id));
+    }
+  } catch (error) {
+    // Entwuerfe sind ein Zusatznutzen -- ein Fehler hier darf die
+    // eigentliche Firmenrecherche nicht scheitern lassen.
+    console.error("E-Mail-Entwürfe konnten nicht erstellt werden:", error);
+  }
 }
 
 export async function vorschlagUebernehmen(formData: FormData) {

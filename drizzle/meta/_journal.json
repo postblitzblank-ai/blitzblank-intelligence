@@ -85,6 +85,13 @@
       "when": 1785265484150,
       "tag": "0011_signaltyp_ausschreibung",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785360121674,
+      "tag": "0012_firma_email_entwurf",
+      "breakpoints": true
     }
   ]
 }

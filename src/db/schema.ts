@@ -84,6 +84,11 @@ export const firma = pgTable("firma", {
    * Quellen geprüft wurden und was gefunden/nicht gefunden wurde. Für die
    * Ampel-Anzeige (Versandbereit/Recherche läuft/Kein Kontakt gefunden). */
   rechercheProtokoll: text("recherche_protokoll"),
+  /** Von der KI automatisch personalisierter E-Mail-Entwurf, bereits bei
+   * der Recherche erstellt (Bezug auf den konkreten Grund/Signal) -- der
+   * Nutzer muss nur noch pruefen und senden, nicht mehr selbst schreiben. */
+  emailEntwurfBetreff: text("email_entwurf_betreff"),
+  emailEntwurfText: text("email_entwurf_text"),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
   aktualisiertAm: timestamp("aktualisiert_am").notNull().defaultNow(),
 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { firmenRecherche } from "@/app/actions/recherche";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 /**
  * Automatische Lead-Suche (Vercel Cron, siehe vercel.json): läuft mehrmals
