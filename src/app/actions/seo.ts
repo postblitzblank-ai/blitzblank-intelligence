@@ -14,6 +14,8 @@ import {
 } from "@/lib/search-console";
 import { hintergrundAccessTokenHolen } from "@/lib/google-token";
 import { mitFreundlicherFehlerbehandlung } from "@/lib/fehler";
+import { dateiLesen, dateiAktualisieren } from "@/lib/website-repo";
+import { WEBSITE_META_DATEIEN } from "@/lib/website-dateien";
 
 const anthropic = new Anthropic();
 
@@ -392,4 +394,167 @@ export async function seoBefundVerwerfen(formData: FormData) {
   await db.update(seoBefund).set({ status: "verworfen" }).where(eq(seoBefund.id, id));
   revalidatePath("/seo");
   revalidatePath("/");
+}
+
+const metaAenderungTool: Anthropic.Tool = {
+  name: "meta_aenderung_melden",
+  description:
+    "Meldet eine konkrete, eindeutige Textänderung in genau einer Website-Datei, oder erklärt, warum eine sichere automatische Änderung nicht möglich ist.",
+  input_schema: {
+    type: "object",
+    properties: {
+      moeglich: {
+        type: "boolean",
+        description: "true, nur wenn eine sichere, eindeutige Textstelle gefunden wurde.",
+      },
+      dateipfad: { type: "string", description: "Exakter Pfad einer der bereitgestellten Dateien." },
+      suchtext: {
+        type: "string",
+        description:
+          "Der exakte, aktuell vorhandene Text, der ersetzt werden soll -- muss zeichengenau und GENAU EINMAL im Dateiinhalt vorkommen. Im Zweifel lieber moeglich=false melden statt zu raten.",
+      },
+      ersetzungstext: { type: "string", description: "Der neue Text, der den suchtext ersetzt." },
+      commitNachricht: { type: "string", description: "Kurze Commit-Nachricht auf Deutsch." },
+      nichtMoeglichGrund: {
+        type: "string",
+        description: "Nur wenn moeglich=false: konkreter, ehrlicher Grund.",
+      },
+    },
+    required: ["moeglich"],
+  },
+};
+
+/**
+ * Setzt einen einzelnen, offenen "meta"-Befund tatsächlich als Code-Änderung
+ * um (Meta-Titel/-Beschreibung), statt ihn nur als Empfehlung zu speichern.
+ * Bewusst auf die Kategorie "meta" beschränkt -- das ist die einzige
+ * Kategorie, bei der eine gezielte Textersetzung sicher und ohne
+ * Erfindungsrisiko möglich ist. Andere Kategorien (neue Seiten, Content)
+ * bleiben Live-Arbeit, bis diese Pipeline sich bewährt hat.
+ */
+async function seoBefundAutomatischUmsetzenDurchfuehren(befundId: string) {
+  const befund = await db.query.seoBefund.findFirst({ where: eq(seoBefund.id, befundId) });
+  if (!befund || befund.status !== "offen" || befund.freigabeNoetig || befund.kategorie !== "meta") {
+    return;
+  }
+
+  const dateien = await Promise.all(
+    WEBSITE_META_DATEIEN.map(async (d) => {
+      const datei = await dateiLesen(d.pfad);
+      return { ...d, inhalt: datei?.inhalt ?? null, sha: datei?.sha ?? null };
+    })
+  );
+  const verfuegbar = dateien.filter(
+    (d): d is typeof d & { inhalt: string; sha: string } => d.inhalt !== null && d.sha !== null
+  );
+  if (verfuegbar.length === 0) {
+    throw new Error("Website-Dateien konnten nicht gelesen werden.");
+  }
+
+  const dateiKontext = verfuegbar
+    .map((d) => `--- Datei: ${d.pfad} (Route: ${d.route}) ---\n${d.inhalt}`)
+    .join("\n\n");
+
+  const antwort = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 4096,
+    tool_choice: { type: "tool", name: "meta_aenderung_melden" },
+    tools: [metaAenderungTool],
+    messages: [
+      {
+        role: "user",
+        content: `Folgender SEO-Befund soll durch eine gezielte Textänderung behoben werden:\n\nTitel: ${befund.titel}\nBeschreibung: ${befund.beschreibung}\n\nInhalte der bearbeitbaren Website-Dateien:\n\n${dateiKontext}\n\nFinde die exakte Textstelle (z. B. Meta-Titel oder Meta-Beschreibung), die diesen Befund behebt. suchtext muss zeichengenau und GENAU EINMAL im Dateiinhalt vorkommen. Wenn keine sichere, eindeutige Textstelle auffindbar ist, melde moeglich=false mit ehrlicher Begründung statt zu raten.`,
+      },
+    ],
+  });
+
+  if (antwort.stop_reason === "max_tokens") {
+    throw new Error("Antwort wurde abgeschnitten. Bitte erneut versuchen.");
+  }
+
+  const toolUse = antwort.content.find(
+    (c): c is Anthropic.ToolUseBlock => c.type === "tool_use"
+  );
+  const eingabe = toolUse?.input as
+    | {
+        moeglich?: boolean;
+        dateipfad?: string;
+        suchtext?: string;
+        ersetzungstext?: string;
+        commitNachricht?: string;
+        nichtMoeglichGrund?: string;
+      }
+    | undefined;
+
+  if (!eingabe?.moeglich) {
+    await db
+      .update(seoBefund)
+      .set({
+        beschreibung: `${befund.beschreibung} -- Kann nicht automatisch umgesetzt werden: ${
+          eingabe?.nichtMoeglichGrund?.trim() || "keine eindeutige Textstelle gefunden."
+        }`,
+      })
+      .where(eq(seoBefund.id, befundId));
+    revalidatePath("/seo");
+    return;
+  }
+
+  const ziel = verfuegbar.find((d) => d.pfad === eingabe.dateipfad);
+  if (!ziel || !eingabe.suchtext || !eingabe.ersetzungstext) {
+    throw new Error("Unvollständige Änderung von der KI erhalten.");
+  }
+
+  // Sicherheitsprüfung: der Suchtext muss WIRKLICH genau einmal vorkommen,
+  // bevor irgendetwas auf der Live-Website committet wird.
+  const vorkommen = ziel.inhalt.split(eingabe.suchtext).length - 1;
+  if (vorkommen !== 1) {
+    await db
+      .update(seoBefund)
+      .set({
+        beschreibung: `${befund.beschreibung} -- Kann nicht automatisch umgesetzt werden: die vorgeschlagene Textstelle war nicht eindeutig auffindbar (Sicherheitsprüfung fehlgeschlagen).`,
+      })
+      .where(eq(seoBefund.id, befundId));
+    revalidatePath("/seo");
+    return;
+  }
+
+  const neuerInhalt = ziel.inhalt.replace(eingabe.suchtext, eingabe.ersetzungstext);
+  const { commitUrl } = await dateiAktualisieren(
+    ziel.pfad,
+    neuerInhalt,
+    ziel.sha,
+    eingabe.commitNachricht?.trim() || `SEO: ${befund.titel}`
+  );
+
+  await db
+    .update(seoBefund)
+    .set({ status: "erledigt", commitUrl })
+    .where(eq(seoBefund.id, befundId));
+  revalidatePath("/seo");
+  revalidatePath("/");
+}
+
+/**
+ * Täglicher Batch (Teil des seo-daily-Crons, siehe api/cron/seo-daily):
+ * versucht für bis zu 3 offene, autonome Meta-Befunde eine echte
+ * Code-Änderung umzusetzen, statt sie nur als Empfehlung liegen zu lassen.
+ * Läuft nur, wenn ein GitHub-Token für das Website-Repository hinterlegt
+ * ist -- sonst bleiben die Befunde unverändert als Empfehlung stehen.
+ */
+export async function seoAutomatikTaeglich() {
+  if (!process.env.WEBSITE_GITHUB_TOKEN) return;
+
+  const offen = await db.query.seoBefund.findMany({
+    where: (b, { and: und, eq: gleich }) =>
+      und(gleich(b.kategorie, "meta"), gleich(b.freigabeNoetig, false), gleich(b.status, "offen")),
+    limit: 3,
+  });
+
+  for (const b of offen) {
+    try {
+      await seoBefundAutomatischUmsetzenDurchfuehren(b.id);
+    } catch (error) {
+      console.error(`Automatische SEO-Umsetzung fehlgeschlagen (${b.titel}):`, error);
+    }
+  }
 }

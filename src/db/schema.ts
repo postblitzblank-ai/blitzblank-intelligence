@@ -214,6 +214,9 @@ export const seoBefund = pgTable("seo_befund", {
   freigabeNoetig: boolean("freigabe_noetig").notNull().default(false),
   status: seoBefundStatusEnum("status").notNull().default("offen"),
   quelleUrl: text("quelle_url"),
+  /** Link zum echten Commit, falls diese Änderung tatsächlich automatisch
+   * im Website-Repository umgesetzt wurde (nicht nur eine Empfehlung). */
+  commitUrl: text("commit_url"),
   erstelltAm: timestamp("erstellt_am").notNull().defaultNow(),
 });
 

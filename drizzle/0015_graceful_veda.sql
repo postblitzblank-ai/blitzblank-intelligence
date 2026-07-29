@@ -1,0 +1,1 @@
+ALTER TABLE "seo_befund" ADD COLUMN "commit_url" text;

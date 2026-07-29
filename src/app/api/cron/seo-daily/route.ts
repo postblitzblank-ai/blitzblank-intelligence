@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { keywordStrategieErstellen, zielKeywordsAktualisieren } from "@/app/actions/seo";
+import {
+  keywordStrategieErstellen,
+  zielKeywordsAktualisieren,
+  seoAutomatikTaeglich,
+} from "@/app/actions/seo";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 /**
  * Täglicher Hintergrund-Job (Vercel Cron, siehe vercel.json): aktualisiert
  * die Google-Position jedes Ziel-Keywords automatisch, ganz ohne dass der
  * Nutzer etwas klicken muss. Einmal pro Woche (Montag) erstellt die KI
  * zusätzlich neue Strategie-Vorschläge auf Basis der aktuellen Daten.
+ * Danach versucht seoAutomatikTaeglich, offene autonome Meta-Befunde direkt
+ * als echten Commit im Website-Repository umzusetzen (nur wenn dafür ein
+ * GitHub-Token hinterlegt ist, siehe WEBSITE_GITHUB_TOKEN).
  */
 export async function GET(request: NextRequest) {
   const autorisierung = request.headers.get("authorization");
@@ -34,6 +41,13 @@ export async function GET(request: NextRequest) {
       ergebnisse.strategie =
         "fehler: " + (error instanceof Error ? error.message : String(error));
     }
+  }
+
+  try {
+    await seoAutomatikTaeglich();
+    ergebnisse.autoFix = "ok";
+  } catch (error) {
+    ergebnisse.autoFix = "fehler: " + (error instanceof Error ? error.message : String(error));
   }
 
   return NextResponse.json({

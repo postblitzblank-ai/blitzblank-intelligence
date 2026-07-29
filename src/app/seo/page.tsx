@@ -127,10 +127,11 @@ export default async function SeoPage() {
           Analysiert, noch nicht umgesetzt ({autonom.length})
         </h2>
         <p className="text-xs text-muted-foreground">
-          Technisch möglich, aber diese App kann noch keinen Code auf der
-          Website selbst ändern — dafür fehlt ihr ein dauerhafter
-          Schreibzugriff auf das Website-Repository. Diese Punkte werden in
-          einer Live-Arbeitssitzung umgesetzt, sobald du das anstößt.
+          Meta-Angaben (Titel/Beschreibung) versucht die App täglich
+          automatisch als echten Commit umzusetzen. Alle anderen Kategorien
+          (neue Seiten, Content, interne Verlinkung) bleiben Live-Arbeit in
+          einer Arbeitssitzung, da automatisch erfundener Inhalt auf einer
+          echten Website ein zu großes Risiko wäre.
         </p>
         {autonom.length === 0 ? (
           <Card>
@@ -234,7 +235,17 @@ export default async function SeoPage() {
                 className="flex items-center gap-2 text-sm text-muted-foreground"
               >
                 <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-                {b.titel}
+                <span>{b.titel}</span>
+                {b.commitUrl && (
+                  <a
+                    href={b.commitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline dark:text-emerald-400"
+                  >
+                    Commit ansehen <ExternalLink className="size-3" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
