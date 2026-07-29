@@ -79,12 +79,19 @@ async function alleSendenDurchfuehren(typ: "direktkunde" | "nachunternehmer") {
         ? `Sehr geehrte${kontakt.anrede === "Frau" ? "" : "r"} ${kontakt.anrede} ${kontakt.nachname},`
         : "Sehr geehrte Damen und Herren,";
 
-    const text = vorlage.textMitPlatzhaltern.replace("{{anrede}}", anrede);
+    // Personalisierten KI-Entwurf bevorzugen (geht auf den konkreten Grund
+    // ein), sonst generische Vorlage als Fallback (z. B. bei manuell
+    // erfassten Firmen ohne KI-Recherche).
+    const betreff = f.emailEntwurfBetreff || vorlage.betreff;
+    const text = (f.emailEntwurfText || vorlage.textMitPlatzhaltern).replace(
+      "{{anrede}}",
+      anrede
+    );
 
     try {
       await emailSenden(accessToken, {
         an: empfaengerEmail,
-        betreff: vorlage.betreff,
+        betreff,
         text,
       });
     } catch (error) {
@@ -116,4 +123,72 @@ async function alleSendenDurchfuehren(typ: "direktkunde" | "nachunternehmer") {
   revalidatePath(`${modulPfad[typ]}/freigabe`);
 
   return { gesendet, uebersprungen };
+}
+
+/**
+ * Einzelversand des automatisch erstellten, personalisierten Entwurfs
+ * (Prozess "KI recherchiert → Entwurf → Nutzer drückt nur Senden").
+ * Erlaubt optionales Bearbeiten von Betreff/Text vor dem Versand.
+ */
+export async function entwurfSenden(formData: FormData) {
+  const firmaId = formData.get("firmaId") as string;
+  const betreff = (formData.get("betreff") as string)?.trim();
+  const text = (formData.get("text") as string)?.trim();
+  if (!firmaId || !betreff || !text) {
+    throw new Error("Betreff und Text dürfen nicht leer sein.");
+  }
+
+  return mitFreundlicherFehlerbehandlung(
+    "E-Mail-Entwurf senden",
+    () => entwurfSendenDurchfuehren(firmaId, betreff, text),
+    "Die E-Mail konnte gerade nicht gesendet werden. Bitte in ein paar Minuten erneut versuchen."
+  );
+}
+
+async function entwurfSendenDurchfuehren(firmaId: string, betreff: string, text: string) {
+  const f = await db.query.firma.findFirst({
+    where: eq(firma.id, firmaId),
+    with: { ansprechpartner: true },
+  });
+  if (!f) throw new Error("Firma nicht gefunden.");
+
+  const kontakt = f.ansprechpartner.find((a) => a.email) ?? null;
+  const empfaengerEmail = kontakt?.email ?? f.email;
+  if (!empfaengerEmail) {
+    throw new Error("Keine E-Mail-Adresse für diese Firma bekannt.");
+  }
+
+  const accessToken = await googleAccessTokenHolen();
+  if (!accessToken) {
+    throw new Error("Nicht mit Google verbunden. Bitte zuerst in den Einstellungen verbinden.");
+  }
+
+  const anrede =
+    kontakt?.anrede && kontakt?.nachname
+      ? `Sehr geehrte${kontakt.anrede === "Frau" ? "" : "r"} ${kontakt.anrede} ${kontakt.nachname},`
+      : "Sehr geehrte Damen und Herren,";
+
+  await emailSenden(accessToken, {
+    an: empfaengerEmail,
+    betreff,
+    text: text.replace("{{anrede}}", anrede),
+  });
+
+  await db.insert(aktivitaet).values({
+    firmaId: f.id,
+    typ: "email_gesendet",
+    beschreibung: betreff,
+  });
+  await db.insert(followup).values({
+    firmaId: f.id,
+    faelligAm: inTagen(f.typ === "nachunternehmer" ? 24 : 14),
+  });
+  await db
+    .update(firma)
+    .set({ status: "kontaktiert", aktualisiertAm: new Date() })
+    .where(eq(firma.id, f.id));
+
+  revalidatePath("/");
+  revalidatePath(modulPfad[f.typ]);
+  revalidatePath(`${modulPfad[f.typ]}/${f.id}`);
 }

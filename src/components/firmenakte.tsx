@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/firma";
 import { followupAbschliessen, followupPlanen } from "@/app/actions/followup";
 import { opportunityScore, scoreLabel } from "@/lib/opportunity-score";
+import { EmailEntwurf } from "@/components/email-entwurf";
 
 function externeUrl(url: string) {
   return /^https?:\/\//.test(url) ? url : `https://${url}`;
@@ -137,6 +138,23 @@ export async function Firmenakte({
             <CardDescription>Warum diese Firma: {akte.begruendung}</CardDescription>
           </CardHeader>
         </Card>
+      )}
+
+      {akte.emailEntwurfText && akte.status !== "gewonnen" && akte.status !== "kein_interesse" && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            E-Mail-Entwurf der KI
+          </h2>
+          <EmailEntwurf
+            firmaId={akte.id}
+            betreff={akte.emailEntwurfBetreff ?? ""}
+            text={akte.emailEntwurfText}
+            hatAnsprechpartner={akte.ansprechpartner.length > 0}
+            hatTelefon={akte.ansprechpartner.some((a) => a.telefon)}
+            hatWebsite={Boolean(akte.website)}
+            hatEmail={Boolean(akte.email || akte.ansprechpartner.some((a) => a.email))}
+          />
+        </section>
       )}
 
       {akte.chancen.length > 0 && (
